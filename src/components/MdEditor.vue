@@ -29,9 +29,11 @@ onMounted(async () => {
       mode: 'ir',
       // 兜底：确保一定传入字符串，不传null/undefined
       value: props.modelValue ?? '',
+      cache: {
+        id: "note-editor"
+      },
       input: (val) => {
         emit('update:modelValue', val)
-        emit('change', val)
       }
     })
   } catch (err) {

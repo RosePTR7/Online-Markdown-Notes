@@ -1,7 +1,7 @@
 <template>
   <div class="h-screen flex flex-col overflow-hidden">
     <!-- 顶部栏：项目标题 + 多标签页 + AI配置按钮 -->
-    <div class="flex items-center border-b border-gray-200 px-4 py-2 gap-2 shrink-0">
+    <div class="flex items-center border-b border-gray-200 pl-10 pr-4 py-2 gap-10 shrink-0">
       <span class="font-bold text-lg">在线Markdown笔记</span>
       <div class="flex-1 flex gap-1 overflow-x-auto">
         <!-- 修复点：点击标签执行openNote，实现多标签新增逻辑 -->
@@ -44,17 +44,18 @@
       <div class="flex-1 flex flex-col overflow-hidden">
         <div v-if="currentNote" class="p-2 border-b flex gap-3 items-center shrink-0">
           <input
-            v-model="currentNote.title"
+            :value="currentNote.title"
             class="border px-2 py-1 w-60"
-            @input="updateNote(currentNote.id,{title:currentNote.title})"
+            @input="(e) => updateNote(currentNote.id, { title: e.target.value })"
           />
           <button class="bg-purple-500 text-white px-3 py-1 rounded" @click="handlePolish">AI一键润色</button>
         </div>
         <MdEditor
+          :key="activeId"
           v-if="currentNote"
-          v-model="currentNote.content"
+          :model-value="currentNote.content"
           class="flex-1 overflow-hidden"
-          @change="updateNote(currentNote.id,{content:currentNote.content})"
+          @update:model-value="(val) => updateNote(currentNote.id, { content: val })"
         />
         <div v-else class="flex items-center justify-center flex-1 text-gray-400">请新建/选择一条笔记</div>
       </div>
