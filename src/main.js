@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import App from './App.vue'
+import Vditor from 'vditor'
 // UnoCSS全局样式
 import 'virtual:uno.css'
 // Vditor编辑器样式

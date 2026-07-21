@@ -27,10 +27,10 @@ export function useNoteStore() {
 
   // 删除笔记
   const delNote = (id) => {
-  noteList.value = noteList.value.filter(item => item.id !== id)
-  saveNotes()
-  openTabs.value = openTabs.value.filter(t => t.id !== id)
-  if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
+    noteList.value = noteList.value.filter(item => item.id !== id)
+    saveNotes()
+    openTabs.value = openTabs.value.filter(t => t.id !== id)
+    if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
   }
 
   // 更新笔记
@@ -44,17 +44,20 @@ export function useNoteStore() {
 
   // 打开笔记，加入标签页
   const openNote = (id) => {
-  const target = noteList.value.find(n => n.id === id)
-  if (!target) return
-  activeId.value = id
-  const hasTab = openTabs.value.some(t => t.id === id)
-  if (!hasTab) openTabs.value.push({ id, title: target.title })
+    const target = noteList.value.find(n => n.id === id)
+    if (!target) return
+    activeId.value = id
+    const hasTab = openTabs.value.some(t => t.id === id)
+    if (!hasTab) openTabs.value.push({ id, title: target.title })
   }
 
   // 关闭标签页
   const closeTab = (id) => {
-  openTabs.value = openTabs.value.filter(t => t.id !== id)
-  if (activeId.value === id) activeId.value = openTabs.value[openTabs.value.length - 1]?.id || ''
+    openTabs.value = openTabs.value.filter(t => t.id !== id)
+    if (activeId.value === id) {
+      const lastTab = openTabs.value.at(-1)
+      activeId.value = lastTab?.id || ''
+    }
   }
 
   // 当前选中笔记
