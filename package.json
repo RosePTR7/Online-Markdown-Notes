@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dexie": "^4.4.4",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.6",
     "nanoid": "^6.0.0",
