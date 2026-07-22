@@ -13,21 +13,16 @@ const emit = defineEmits(['update:modelValue', 'change'])
 
 let vditor = null
 const vditorRef = ref(null)
+let isBusy = false
 
 onMounted(async () => {
-  // 等待DOM完全渲染完成
   await nextTick()
-  // 节点为空直接退出
-  if (!vditorRef.value) return
+  if (!vditorRef.value || vditor) return
 
-  // 捕获Vditor内部所有初始化报错，不会阻塞页面全局JS
   try {
-    // 防止重复创建实例
-    if (vditor) return
     vditor = new Vditor(vditorRef.value, {
       height: '100%',
       mode: 'ir',
-      // 兜底：确保一定传入字符串，不传null/undefined
       value: props.modelValue ?? '',
       cache: {
         id: "note-editor"
@@ -42,9 +37,19 @@ onMounted(async () => {
 })
 
 watch(() => props.modelValue, (val) => {
-  if (vditor && val !== vditor.getValue()) {
-    vditor.setValue(val ?? '')
-  }
+  if (!vditor || isBusy) return
+  const currentVal = vditor.getValue()
+  if (val === currentVal) return
+
+  isBusy = true
+  vditor.setValue(val ?? '')
+  setTimeout(() => {
+    isBusy = false
+  }, 80)
+})
+
+defineExpose({
+  getVditor: () => vditor
 })
 
 onUnmounted(() => {

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="noteStore.loading" class="w-full h-screen flex items-center justify-center text-lg text-gray-500">
+  <div v-if="loading" class="w-full h-screen flex items-center justify-center text-lg text-gray-500">
     笔记加载中...
   </div>
   <div v-else class="h-screen flex flex-col overflow-hidden bg-slate-50 font-['system-ui','-apple-system','PingFang SC','Microsoft YaHei',sans-serif]" @click="closeNoteMenu">
@@ -78,8 +78,16 @@
           </div>
           <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded px-3 py-1 shrink-0" @click="handlePolish">AI一键润色</button>
         </div>
+
+        <!-- 保存状态状态栏 -->
+        <div v-if="currentNote" class="px-3 py-1 text-xs border-b border-gray-100">
+          <span :class="isUnsaved ? 'text-red-500' : 'text-green-600'">
+            {{ isUnsaved ? '有未保存修改' : '已保存' }}
+          </span>
+        </div>
+
         <MdEditor
-          :key="activeId"
+          ref="mdEditorRef"
           v-if="currentNote"
           v-model="editorContent"
           class="flex-1 overflow-hidden"
@@ -122,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useNoteStore } from './stores/useNoteStore'
 import MdEditor from './components/MdEditor.vue'
 import { polishMarkdown } from './utils/aiApi'
@@ -135,6 +143,35 @@ const {
 } = noteStore
 
 let loading = ref(true)
+const mdEditorRef = ref(null)
+
+let saveTimer = null
+const DEBOUNCE_DELAY = 2000
+let originContent = ''
+const isUnsaved = ref(false)
+
+// 抽取独立保存逻辑
+const runSaveLogic = () => {
+  if (!currentNote.value) return
+  updateNote(currentNote.value.id, { content: editorContent.value })
+  originContent = editorContent.value
+  isUnsaved.value = false
+}
+
+// 切换笔记/关闭页面触发强制保存（方案A核心逻辑）
+const flushSave = () => {
+  if (saveTimer) {
+    // 存在等待执行的防抖任务：立刻执行保存，不丢弃修改
+    runSaveLogic()
+    clearTimeout(saveTimer)
+    saveTimer = null
+  } else {
+    // 无等待任务，依靠脏标记判断
+    if (isUnsaved.value) {
+      runSaveLogic()
+    }
+  }
+}
 
 onMounted(async () => {
   try {
@@ -143,40 +180,52 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  window.addEventListener('beforeunload', flushSave)
+})
+
+onBeforeUnmount(() => {
+  flushSave()
+  window.removeEventListener('beforeunload', flushSave)
 })
 
 const showSetting = ref(false)
 const editorContent = ref('')
-let saveTimer = null
-const DEBOUNCE_DELAY = 2000
 
-// 按修改时间倒序
 const sortedList = computed(() => [...noteList.value].sort((a, b) => b.updateTime - a.updateTime))
 
-// 切换笔记同步编辑器内容
+// 切换笔记
 watch(currentNote, (note) => {
-  clearTimeout(saveTimer)
+  flushSave()
   if (note) {
     editorContent.value = note.content
+    originContent = note.content
+    isUnsaved.value = false
   } else {
     editorContent.value = ''
+    originContent = ''
+    isUnsaved.value = false
   }
 })
 
-// 编辑器防抖自动保存
+// 编辑器输入监听
 watch(editorContent, (newVal) => {
   clearTimeout(saveTimer)
   if (!currentNote.value) return
 
-  saveTimer = setTimeout(() => {
-    updateNote(currentNote.value.id, { content: newVal })
-  }, DEBOUNCE_DELAY)
+  if (newVal !== originContent) {
+    isUnsaved.value = true
+    saveTimer = setTimeout(() => {
+      runSaveLogic()
+      saveTimer = null
+    }, DEBOUNCE_DELAY)
+  } else {
+    isUnsaved.value = false
+  }
 })
 
 // 删除弹窗
 const showDeleteModal = ref(false)
 let pendingDeleteId = ''
-
 const openDeleteConfirm = () => {
   pendingDeleteId = activeMenuNoteId.value
   closeNoteMenu()
@@ -206,12 +255,10 @@ const openNoteMenu = (note, e) => {
   showRenameInput.value = false
   menuVisible.value = true
 }
-
 const closeNoteMenu = () => {
   menuVisible.value = false
   activeMenuNoteId.value = ''
 }
-
 const submitRename = () => {
   const name = renameInputValue.value.trim()
   if (!name) return
@@ -229,8 +276,7 @@ const handlePolish = async () => {
   try {
     const result = await polishMarkdown(currentNote.value.content, aiConfig.baseUrl, aiConfig.apiKey)
     editorContent.value = result
-    // 立即写入数据库
-    updateNote(currentNote.value.id, { content: result })
+    runSaveLogic()
   } catch (err) {
     alert('润色失败：' + err.message)
   }
