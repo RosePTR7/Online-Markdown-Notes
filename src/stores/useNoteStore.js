@@ -2,14 +2,19 @@ import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
 import { noteTable, aiConfigTable } from '../utils/db'
 
+// 模块级别的单例状态
+const noteList = ref([])
+const openTabs = ref([])
+const activeId = ref('')
+const aiConfig = ref({
+  baseUrl: '',
+  apiKey: ''
+})
+
+// 当前选中笔记（模块级别 computed）
+const currentNote = computed(() => noteList.value.find(n => n.id === activeId.value) || null)
+
 export function useNoteStore() {
-  const noteList = ref([])
-  const openTabs = ref([])
-  const activeId = ref('')
-  const aiConfig = ref({
-    baseUrl: '',
-    apiKey: ''
-  })
 
   // 从数据库加载全部笔记
   const loadNotes = async () => {
@@ -90,9 +95,6 @@ export function useNoteStore() {
       activeId.value = lastTab?.id || ''
     }
   }
-
-  // 当前选中笔记
-  const currentNote = computed(() => noteList.value.find(n => n.id === activeId.value) || null)
 
   return {
     noteList,
