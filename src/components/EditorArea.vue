@@ -1,23 +1,75 @@
 <template>
   <div class="flex-1 flex flex-col overflow-hidden bg-white relative">
-    <div v-if="currentNote" class="p-2 border-b flex items-center shrink-0 gap-4">
-      <div class="flex-1 flex gap-1 overflow-x-auto">
-        <div
-          v-for="tab in openTabs"
-          :key="tab.id"
-          class="px-3 py-1 rounded-t cursor-pointer flex items-center gap-1 shrink-0 max-w-[140px]"
-          :class="activeId === tab.id
-            ? 'bg-slate-100 text-indigo-600 border-b-2 border-indigo-500'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-          @click="openNote(tab.id)"
-          @contextmenu.prevent="openTabContextMenu(tab.id, $event)"
+    <!-- 顶部工具栏区域 -->
+    <div v-if="currentNote" class="flex flex-col shrink-0 bg-slate-50">
+      <!-- 按钮栏 - 最上面 -->
+      <div class="flex items-center px-3 py-2 gap-3">
+        <!-- 编辑/查看按钮组 - 圆角矩形包裹 -->
+        <div class="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5">
+          <div class="relative" ref="editMenuRef">
+            <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-base border border-slate-200" @click="togglePanel('edit')">编辑</button>
+            <!-- 编辑下拉菜单 -->
+            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-36">
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="handleUndo()">撤销</div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="handleRedo()">恢复</div>
+              <div class="border-t border-slate-200 my-1"></div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel('find')">查找</div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel('replace')">替换</div>
+            </div>
+          </div>
+          <div class="relative" ref="viewMenuRef">
+            <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-base border border-slate-200" @click="togglePanel('view')">查看</button>
+            <!-- 查看下拉菜单 -->
+            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-36">
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="themeMode = 'light'">☀️ 亮色</div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="themeMode = 'dark'">🌙 暗色</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- AI配置按钮 -->
+        <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-base border border-slate-300" @click="showSetting=true">AI配置</button>
+        
+        <div class="flex-1"></div>
+        
+        <!-- 保存状态 - 圆角矩形色块 -->
+        <div 
+          class="px-3 py-1 rounded-lg text-sm font-medium shrink-0"
+          :class="isUnsaved ? 'bg-red-500 text-white' : 'bg-green-500 text-white'"
         >
-          <!-- 增加?. 防止时序报错 核心修改 -->
-          <span class="truncate">{{ noteList?.find(n => n.id === tab.id)?.title || '' }}</span>
-          <span @click.stop="closeTab(tab.id)" class="hover:text-red-500 shrink-0">×</span>
+          {{ isUnsaved ? '未保存' : '已保存' }}
+        </div>
+        
+        <!-- AI一键润色按钮 - 圆角矩形 -->
+        <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl px-4 py-1 text-sm shrink-0 border border-indigo-500" @click="handlePolish">AI一键润色</button>
+      </div>
+      
+      <!-- 标签页区域 - 紧贴编辑器 -->
+      <div class="flex items-end px-2 border-b border-slate-400">
+        <div class="flex-1 flex gap-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+          <draggable
+            v-model="tabList"
+            item-key="id"
+            class="flex gap-1"
+            ghost-class="opacity-50"
+            @end="onTabDragEnd"
+          >
+            <template #item="{ element: tab }">
+              <div
+                class="px-4 py-1.5 rounded-t-lg cursor-pointer flex items-center gap-2 shrink-0 max-w-[200px] border border-b-0 -mb-px"
+                :class="activeId === tab.id
+                  ? 'bg-white text-indigo-600 border-slate-200'
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-400'"
+                @click="openNote(tab.id)"
+                @contextmenu.prevent="openTabContextMenu(tab.id, $event)"
+              >
+                <span class="truncate text-lg">{{ noteList?.find(n => n.id === tab.id)?.title || '' }}</span>
+                <span @click.stop="closeTab(tab.id)" class="hover:text-red-500 shrink-0 text-xl leading-none">×</span>
+              </div>
+            </template>
+          </draggable>
         </div>
       </div>
-      <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded px-3 py-1 shrink-0" @click="handlePolish">AI一键润色</button>
     </div>
 
     <!-- 标签右键菜单 独立遮罩关闭 -->
@@ -27,53 +79,72 @@
       @click="tabMenuVisible = false"
     >
       <div
-        class="fixed bg-white shadow-lg border rounded py-1 z-50 w-32"
+        class="fixed bg-white shadow-lg border rounded-xl py-1 z-50 w-32"
         :style="{ left: tabMenuX + 'px', top: tabMenuY + 'px' }"
         @click.stop
       >
-        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" @click="tabRename">重命名</div>
-        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" @click="closeOtherTabs">删除其他</div>
-        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm text-red-500" @click="closeAllTabs">删除所有</div>
+        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm rounded-lg mx-1" @click="tabRename">重命名</div>
+        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm rounded-lg mx-1" @click="closeOtherTabs">删除其他</div>
+        <div class="px-3 py-2 hover:bg-red-50 cursor-pointer text-sm text-red-500 rounded-lg mx-1" @click="closeAllTabs">删除所有</div>
       </div>
     </div>
 
-    <!-- 保存状态状态栏 -->
-    <div v-if="currentNote" class="px-3 py-1 text-xs border-b border-gray-100">
-      <span :class="isUnsaved ? 'text-red-500' : 'text-green-600'">
-        {{ isUnsaved ? '有未保存修改' : '已保存' }}
-      </span>
-    </div>
-
-    <!-- 查找/替换悬浮窗口 - fixed 定位在右上角 -->
+    <!-- 查找/替换悬浮窗口 - fixed 定位，可拖拽 -->
     <div
       v-if="findPanelVisible"
-      class="fixed top-20 right-8 z-50 bg-white border border-slate-300 rounded-lg shadow-lg px-4 py-3 min-w-[400px]"
+      class="fixed z-50 bg-white border border-slate-300 rounded-lg shadow-lg min-w-[400px]"
+      :style="{ left: findPanelPos.x + 'px', top: findPanelPos.y + 'px' }"
     >
-      <div class="flex items-center justify-between mb-2">
+      <!-- 拖拽手柄 -->
+      <div
+        class="flex items-center justify-between px-4 py-2 cursor-move bg-slate-50 rounded-t-lg border-b border-slate-200"
+        @mousedown="startDragFindPanel"
+      >
         <span class="text-sm font-medium text-slate-700">{{ showReplace ? '替换' : '查找' }}</span>
         <button class="px-2 py-0.5 text-slate-400 hover:text-slate-600 text-lg leading-none" @click="closeFindPanel" title="关闭">✕</button>
       </div>
-      <div class="flex items-center gap-2 mb-2">
-        <input
-          v-model="findKeyword"
-          type="text"
-          placeholder="查找内容..."
-          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-          @keyup.enter="doFind"
-          ref="findInputRef"
-        />
-        <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
-        <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
+      <div class="px-4 py-3">
+        <div class="flex items-center gap-2 mb-2">
+          <input
+            v-model="findKeyword"
+            type="text"
+            placeholder="查找内容..."
+            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            @keyup.enter="doFind"
+            ref="findInputRef"
+          />
+          <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
+          <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
+        </div>
+        <div v-if="showReplace" class="flex items-center gap-2">
+          <input
+            v-model="replaceKeyword"
+            type="text"
+            placeholder="替换为..."
+            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            @keyup.enter="doReplaceAll"
+          />
+          <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+        </div>
       </div>
-      <div v-if="showReplace" class="flex items-center gap-2">
-        <input
-          v-model="replaceKeyword"
-          type="text"
-          placeholder="替换为..."
-          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-          @keyup.enter="doReplaceAll"
-        />
-        <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+    </div>
+
+    <!-- AI配置弹窗 -->
+    <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white p-5 rounded-xl w-96">
+        <h3 class="text-lg font-bold mb-3 text-slate-800">AI接口配置</h3>
+        <div class="mb-2">
+          <label class="text-slate-700">API BaseURL</label>
+          <input v-model="aiConfig.baseUrl" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
+        </div>
+        <div class="mb-3">
+          <label class="text-slate-700">API Key</label>
+          <input v-model="aiConfig.apiKey" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button class="px-3 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700" @click="showSetting=false">取消</button>
+          <button class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg" @click="saveAiConfig()">保存</button>
+        </div>
       </div>
     </div>
 
@@ -89,10 +160,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, computed, onBeforeUnmount } from 'vue'
 import { useNoteStore } from '../stores/useNoteStore'
 import MdEditor from './MdEditor.vue'
 import { polishMarkdown } from '../utils/aiApi'
+import draggable from 'vuedraggable'
 
 const props = defineProps({
   modelValue: {
@@ -105,7 +177,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
 
 const mdEditor = ref(null)
 
@@ -113,6 +185,40 @@ const getVditor = () => mdEditor.value?.getVditor?.()
 
 const handleUndo = () => getVditor()?.undo?.()
 const handleRedo = () => getVditor()?.redo?.()
+
+// ==========编辑/查看面板==========
+const activePanel = ref(null) // 'edit' | 'view' | null
+const editMenuRef = ref(null)
+const viewMenuRef = ref(null)
+
+const togglePanel = (panel) => {
+  activePanel.value = activePanel.value === panel ? null : panel
+}
+
+// 点击外部关闭菜单
+const closePanelOnClickOutside = (e) => {
+  if (activePanel.value === 'edit' && editMenuRef.value && !editMenuRef.value.contains(e.target)) {
+    activePanel.value = null
+  } else if (activePanel.value === 'view' && viewMenuRef.value && !viewMenuRef.value.contains(e.target)) {
+    activePanel.value = null
+  }
+}
+document.addEventListener('click', closePanelOnClickOutside)
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closePanelOnClickOutside)
+})
+
+// 主题模式
+const themeMode = ref('light')
+
+// AI配置弹窗
+const showSetting = ref(false)
+
+const saveAiConfig = () => {
+  noteStore.saveAiConfig()
+  showSetting.value = false
+}
 
 const handleFind = (keyword) => {
   if (!keyword) return 0
@@ -152,6 +258,32 @@ const findKeyword = ref('')
 const replaceKeyword = ref('')
 const findCount = ref(null)
 const findInputRef = ref(null)
+
+// ==========悬浮窗拖拽==========
+const findPanelPos = ref({ x: window.innerWidth - 450, y: 80 })
+let isDraggingFindPanel = false
+let dragOffset = { x: 0, y: 0 }
+
+const startDragFindPanel = (e) => {
+  isDraggingFindPanel = true
+  dragOffset.x = e.clientX - findPanelPos.value.x
+  dragOffset.y = e.clientY - findPanelPos.value.y
+  document.addEventListener('mousemove', handleDragFindPanel)
+  document.addEventListener('mouseup', stopDragFindPanel)
+  e.preventDefault()
+}
+
+const handleDragFindPanel = (e) => {
+  if (!isDraggingFindPanel) return
+  findPanelPos.value.x = e.clientX - dragOffset.x
+  findPanelPos.value.y = e.clientY - dragOffset.y
+}
+
+const stopDragFindPanel = () => {
+  isDraggingFindPanel = false
+  document.removeEventListener('mousemove', handleDragFindPanel)
+  document.removeEventListener('mouseup', stopDragFindPanel)
+}
 
 const openFindReplacePanel = (mode) => {
   // 切换功能时，先关闭之前的悬浮窗并清除高亮
@@ -220,6 +352,19 @@ const {
   noteList, openTabs, activeId, aiConfig, currentNote,
   updateNote, openNote, closeTab
 } = noteStore
+
+// ==========标签页拖拽排序==========
+const tabList = computed({
+  get: () => openTabs.value,
+  set: (value) => {
+    openTabs.value = value
+  }
+})
+
+const onTabDragEnd = () => {
+  // 拖拽结束后，openTabs 已经通过 v-model 更新
+  // 这里可以添加额外的逻辑，如保存到 localStorage
+}
 
 // ==========标签右键菜单==========
 const tabMenuVisible = ref(false)

@@ -1,75 +1,78 @@
 <template>
-  <div class="w-60 flex flex-col shrink-0 bg-white">
-    <button class="m-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold text-base" @click="addNote">+ 新建笔记</button>
+  <div class="w-60 flex flex-col shrink-0 bg-white overflow-hidden">
+    <button class="m-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-base" @click="addNote">+ 新建笔记</button>
 
-    <!-- 搜索框 -->
-    <div class="px-2 py-1">
-      <input
-        v-model="searchKeyword"
-        type="text"
-        placeholder="搜索笔记..."
-        class="w-full px-3 py-1.5 border border-slate-300 rounded outline-none focus:border-indigo-400 text-sm box-border"
-      />
-    </div>
-
-    <!-- 搜索结果区域 -->
-    <div v-if="searchKeyword" class="overflow-auto border-b border-slate-200 max-h-[60vh]">
-      <div class="px-2 py-1 text-xs text-slate-500">搜索结果 ({{ searchResults.length }})</div>
-      <div
-        v-for="note in searchResults"
-        :key="note.id"
-        class="p-2 cursor-pointer hover:bg-slate-100 text-slate-700 rounded-lg mx-1 flex justify-between items-center group"
-        :class="activeId === note.id ? 'bg-slate-100 text-indigo-600 border-b-2 border-indigo-500' : ''"
-        @click="openNote(note.id)"
-      >
-        <span class="flex-1 truncate" v-html="highlightText(note.title)"></span>
-      </div>
-      <div v-if="searchResults.length === 0" class="p-4 text-center text-slate-400 text-sm">无匹配结果</div>
-    </div>
-
-    <!-- 笔记列表区域 -->
-    <div class="flex-1 overflow-auto relative">
-      <div
-        v-for="note in sortedList"
-        :key="note.id"
-        class="p-2 cursor-pointer hover:bg-slate-100 text-slate-700 rounded-lg mx-1 flex justify-between items-center group"
-        :class="activeId === note.id ? 'bg-slate-100 text-indigo-600 border-b-2 border-indigo-500' : ''"
-        @click="openNote(note.id)"
-      >
-        <span class="flex-1 truncate">{{ note.title }}</span>
-        <button
-          class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded hover:bg-gray-300 flex items-center justify-center text-lg text-gray-600 shrink-0"
-          @click="openNoteMenu(note, $event)"
-        >
-          ···
-        </button>
+    <!-- 圆角矩形容器包裹搜索框和笔记列表 -->
+    <div class="flex-1 flex flex-col mx-2 mb-2 bg-slate-100 rounded-2xl overflow-hidden">
+      <!-- 搜索框 -->
+      <div class="px-3 pt-3 pb-2">
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="搜索笔记..."
+          class="w-full px-3 py-1.5 border border-slate-300 rounded-xl outline-none focus:border-indigo-400 text-sm box-border bg-white"
+        />
       </div>
 
-      <!-- 侧边笔记右键菜单 独立遮罩关闭 -->
-      <div
-        v-if="menuVisible"
-        class="fixed inset-0 z-40"
-        @click="closeNoteMenu"
-      >
+      <!-- 搜索结果区域 -->
+      <div v-if="searchKeyword" class="overflow-auto border-b border-slate-200 max-h-[60vh]">
+        <div class="px-3 py-1 text-xs text-slate-500">搜索结果 ({{ searchResults.length }})</div>
         <div
-          class="fixed bg-white shadow-lg border rounded py-1 z-50 w-28"
-          :style="{ left: menuX + 'px', top: menuY + 'px' }"
-          @click.stop
+          v-for="note in searchResults"
+          :key="note.id"
+          class="p-2 cursor-pointer hover:bg-slate-200 text-slate-700 rounded-xl mx-2 mb-1 flex justify-between items-center group border border-transparent"
+          :class="activeId === note.id ? 'bg-white text-indigo-600 border-indigo-300' : 'border-slate-300'"
+          @click="openNote(note.id)"
         >
-          <div v-if="!showRenameInput">
-            <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" @click="showRenameInput = true">重命名</div>
-            <div class="px-3 py-2 hover:bg-red-100 cursor-pointer text-sm text-red-500" @click="openDeleteConfirm()">删除笔记</div>
-          </div>
-          <div v-else class="p-2">
-            <input
-              v-model="renameInputValue"
-              class="border w-full px-1 py-1 text-sm mb-2 outline-none"
-              @keyup.enter="submitRename"
-            />
-            <div class="flex gap-1 justify-end">
-              <button class="text-xs px-1 border rounded" @click="closeNoteMenu">取消</button>
-              <button class="text-xs px-1 bg-blue-500 text-white rounded" @click="submitRename">确定</button>
-            </div>
+          <span class="flex-1 truncate" v-html="highlightText(note.title)"></span>
+        </div>
+        <div v-if="searchResults.length === 0" class="p-4 text-center text-slate-400 text-sm">无匹配结果</div>
+      </div>
+
+      <!-- 笔记列表区域 -->
+      <div class="flex-1 overflow-auto relative px-1 pt-1">
+        <div
+          v-for="note in sortedList"
+          :key="note.id"
+          class="p-2 cursor-pointer hover:bg-slate-200 text-slate-700 rounded-xl mx-1 mb-1 flex justify-between items-center group border"
+          :class="activeId === note.id ? 'bg-white text-indigo-600 border-indigo-300' : 'border-slate-300'"
+          @click="openNote(note.id)"
+        >
+          <span class="flex-1 truncate">{{ note.title }}</span>
+          <button
+            class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-gray-300 flex items-center justify-center text-lg text-gray-600 shrink-0"
+            @click="openNoteMenu(note, $event)"
+          >
+            ···
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边笔记右键菜单 独立遮罩关闭 -->
+    <div
+      v-if="menuVisible"
+      class="fixed inset-0 z-40"
+      @click="closeNoteMenu"
+    >
+      <div
+        class="fixed bg-white shadow-lg border rounded-xl py-1 z-50 w-28"
+        :style="{ left: menuX + 'px', top: menuY + 'px' }"
+        @click.stop
+      >
+        <div v-if="!showRenameInput">
+          <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm rounded-lg mx-1" @click="showRenameInput = true">重命名</div>
+          <div class="px-3 py-2 hover:bg-red-100 cursor-pointer text-sm text-red-500 rounded-lg mx-1" @click="openDeleteConfirm()">删除笔记</div>
+        </div>
+        <div v-else class="p-2">
+          <input
+            v-model="renameInputValue"
+            class="border w-full px-2 py-1 text-sm mb-2 outline-none rounded-lg"
+            @keyup.enter="submitRename"
+          />
+          <div class="flex gap-1 justify-end">
+            <button class="text-xs px-2 py-1 border rounded-lg" @click="closeNoteMenu">取消</button>
+            <button class="text-xs px-2 py-1 bg-blue-500 text-white rounded-lg" @click="submitRename">确定</button>
           </div>
         </div>
       </div>

@@ -4,48 +4,26 @@
   </div>
   <div v-else class="h-screen flex overflow-hidden bg-slate-50 font-['system-ui','-apple-system','PingFang SC','Microsoft YaHei',sans-serif]">
     <!-- 左侧：标题 + 侧边栏 -->
-    <div class="flex flex-col bg-white shrink-0">
+    <div class="flex flex-col bg-white shrink-0 overflow-hidden" :style="{ width: sidebarWidth + 'px' }">
       <!-- 标题 -->
       <div class="px-4 py-3 border-b border-slate-200">
         <span class="font-bold text-slate-800 text-xl">在线Markdown笔记</span>
       </div>
+      <!-- 分隔线 -->
+      <div class="h-px bg-slate-200"></div>
       <!-- 侧边栏 -->
       <Sidebar />
     </div>
 
-    <!-- 分界线 -->
-    <div class="w-1 bg-slate-600 shrink-0"></div>
+    <!-- 分界线（可拖拽） -->
+    <div
+      class="w-0.5 bg-slate-400 shrink-0 cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 transition-colors"
+      @mousedown="startResize"
+    ></div>
 
-    <!-- 右侧：按钮 + 编辑器区域 -->
+    <!-- 右侧：编辑器区域 -->
     <div class="flex-1 flex flex-col overflow-hidden pl-2">
-      <!-- 按钮栏 -->
-      <div class="flex items-center px-3 py-2 border-b border-slate-200 bg-white shrink-0">
-        <div class="flex items-center gap-2">
-          <div class="relative" ref="editMenuRef">
-            <button class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded" @click="togglePanel('edit')">编辑</button>
-            <!-- 编辑下拉菜单 -->
-            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded shadow-lg py-1 z-50 w-36">
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="handleUndo()">撤销</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="handleRedo()">恢复</div>
-              <div class="border-t border-slate-200 my-1"></div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="openFindReplace('find')">查找</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="openFindReplace('replace')">替换</div>
-            </div>
-          </div>
-          <div class="relative" ref="viewMenuRef">
-            <button class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded" @click="togglePanel('view')">查看</button>
-            <!-- 查看下拉菜单 -->
-            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded shadow-lg py-1 z-50 w-36">
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="themeMode = 'light'">☀️ 亮色</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700" @click="themeMode = 'dark'">🌙 暗色</div>
-            </div>
-          </div>
-        </div>
-        <div class="flex-1"></div>
-        <button class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded" @click="showSetting=true">AI配置</button>
-      </div>
-
-      <!-- 编辑器区域 -->
+      <!-- 编辑器区域（包含顶部工具栏） -->
       <EditorArea
         ref="editorAreaRef"
         v-model="editorContent"
@@ -88,6 +66,33 @@ const {
 
 let loading = ref(true)
 const editorAreaRef = ref(null)
+
+// ==========侧边栏宽度拖拽==========
+const sidebarWidth = ref(240) // 默认宽度 240px (w-60)
+const MIN_SIDEBAR_WIDTH = 240 // 最小宽度限制，防止分界线侵入侧边栏内容
+const MAX_SIDEBAR_WIDTH = 500
+let isResizing = false
+
+const startResize = (e) => {
+  isResizing = true
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  e.preventDefault()
+}
+
+const handleResize = (e) => {
+  if (!isResizing) return
+  const newWidth = e.clientX
+  if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= MAX_SIDEBAR_WIDTH) {
+    sidebarWidth.value = newWidth
+  }
+}
+
+const stopResize = () => {
+  isResizing = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+}
 
 let saveTimer = null
 const DEBOUNCE_DELAY = 2000
@@ -197,33 +202,13 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   flushSave()
   window.removeEventListener('beforeunload', flushSave)
-  document.removeEventListener('click', closePanelOnClickOutside)
 })
 
 const showSetting = ref(false)
 const editorContent = ref('')
 
-// ==========编辑/查看面板==========
-const activePanel = ref(null) // 'edit' | 'view' | null
-const editMenuRef = ref(null)
-const viewMenuRef = ref(null)
-
-const togglePanel = (panel) => {
-  activePanel.value = activePanel.value === panel ? null : panel
-}
-
-// 点击外部关闭菜单
-const closePanelOnClickOutside = (e) => {
-  if (activePanel.value === 'edit' && editMenuRef.value && !editMenuRef.value.contains(e.target)) {
-    activePanel.value = null
-  } else if (activePanel.value === 'view' && viewMenuRef.value && !viewMenuRef.value.contains(e.target)) {
-    activePanel.value = null
-  }
-}
-document.addEventListener('click', closePanelOnClickOutside)
 // 打开查找/替换悬浮窗口
 const openFindReplace = (mode) => {
-  activePanel.value = null
   editorAreaRef.value?.openFindReplacePanel(mode)
 }
 
