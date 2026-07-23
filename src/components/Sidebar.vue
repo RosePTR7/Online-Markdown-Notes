@@ -1,5 +1,5 @@
 <template>
-  <div class="w-60 border-r border-slate-200 flex flex-col shrink-0 bg-white">
+  <div class="w-60 flex flex-col shrink-0 bg-white">
     <button class="m-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold text-base" @click="addNote">+ 新建笔记</button>
 
     <!-- 搜索框 -->
@@ -8,7 +8,7 @@
         v-model="searchKeyword"
         type="text"
         placeholder="搜索笔记..."
-        class="w-full px-3 py-1.5 border border-slate-300 rounded outline-none focus:border-indigo-400 text-sm"
+        class="w-full px-3 py-1.5 border border-slate-300 rounded outline-none focus:border-indigo-400 text-sm box-border"
       />
     </div>
 
