@@ -29,7 +29,6 @@
         
         <!-- AI配置按钮 -->
         <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-base border border-slate-300" @click="showSetting=true">AI配置</button>
-        
         <div class="flex-1"></div>
         
         <!-- 保存状态 - 圆角矩形色块 -->
@@ -89,45 +88,61 @@
       </div>
     </div>
 
-    <!-- 查找/替换悬浮窗口 - fixed 定位，可拖拽 -->
-    <div
-      v-if="findPanelVisible"
-      class="fixed z-50 bg-white border border-slate-300 rounded-lg shadow-lg min-w-[400px]"
-      :style="{ left: findPanelPos.x + 'px', top: findPanelPos.y + 'px' }"
+    <!-- 查找/替换悬浮窗口 - 使用通用悬浮窗组件 -->
+    <FloatingPanel
+      :visible="findPanelVisible"
+      :title="showReplace ? '替换' : '查找'"
+      @close="closeFindPanel"
     >
-      <!-- 拖拽手柄 -->
-      <div
-        class="flex items-center justify-between px-4 py-2 cursor-move bg-slate-50 rounded-t-lg border-b border-slate-200"
-        @mousedown="startDragFindPanel"
-      >
-        <span class="text-sm font-medium text-slate-700">{{ showReplace ? '替换' : '查找' }}</span>
-        <button class="px-2 py-0.5 text-slate-400 hover:text-slate-600 text-lg leading-none" @click="closeFindPanel" title="关闭">✕</button>
+      <div class="flex items-center gap-2 mb-2">
+        <input
+          v-model="findKeyword"
+          type="text"
+          placeholder="查找内容..."
+          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+          @keyup.enter="doFind"
+          ref="findInputRef"
+        />
+        <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
+        <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
       </div>
-      <div class="px-4 py-3">
-        <div class="flex items-center gap-2 mb-2">
-          <input
-            v-model="findKeyword"
-            type="text"
-            placeholder="查找内容..."
-            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-            @keyup.enter="doFind"
-            ref="findInputRef"
-          />
-          <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
-          <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
-        </div>
-        <div v-if="showReplace" class="flex items-center gap-2">
-          <input
-            v-model="replaceKeyword"
-            type="text"
-            placeholder="替换为..."
-            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-            @keyup.enter="doReplaceAll"
-          />
-          <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+      <div v-if="showReplace" class="flex items-center gap-2">
+        <input
+          v-model="replaceKeyword"
+          type="text"
+          placeholder="替换为..."
+          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+          @keyup.enter="doReplaceAll"
+        />
+        <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+      </div>
+    </FloatingPanel>
+
+    <!-- AI润色悬浮窗 -->
+    <FloatingPanel
+      :visible="polishPanelVisible"
+      title="AI润色结果"
+      panel-class="min-w-[500px] max-w-[700px]"
+      @close="discardPolish"
+    >
+      <div class="flex flex-col gap-3">
+        <textarea
+          v-model="polishedContent"
+          class="w-full h-64 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-400 resize-none"
+          placeholder="润色后的内容..."
+        ></textarea>
+        <div class="flex justify-end gap-3">
+          <button
+            class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm border border-slate-300"
+            @click="discardPolish"
+          >丢弃</button>
+          <button
+            class="px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm border border-indigo-500"
+            @click="applyPolish"
+          >覆盖</button>
         </div>
       </div>
-    </div>
+    </FloatingPanel>
 
     <!-- AI配置弹窗 -->
     <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -137,9 +152,13 @@
           <label class="text-slate-700">API BaseURL</label>
           <input v-model="aiConfig.baseUrl" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
         </div>
-        <div class="mb-3">
+        <div class="mb-2">
           <label class="text-slate-700">API Key</label>
           <input v-model="aiConfig.apiKey" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
+        </div>
+        <div class="mb-3">
+          <label class="text-slate-700">AI模型</label>
+          <input v-model="aiConfig.model" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400" placeholder="例如: qwen3.7-plus"/>
         </div>
         <div class="flex justify-end gap-2">
           <button class="px-3 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700" @click="showSetting=false">取消</button>
@@ -163,6 +182,7 @@
 import { ref, nextTick, computed, onBeforeUnmount } from 'vue'
 import { useNoteStore } from '../stores/useNoteStore'
 import MdEditor from './MdEditor.vue'
+import FloatingPanel from './FloatingPanel.vue'
 import { polishMarkdown } from '../utils/aiApi'
 import draggable from 'vuedraggable'
 
@@ -258,32 +278,6 @@ const findKeyword = ref('')
 const replaceKeyword = ref('')
 const findCount = ref(null)
 const findInputRef = ref(null)
-
-// ==========悬浮窗拖拽==========
-const findPanelPos = ref({ x: window.innerWidth - 450, y: 80 })
-let isDraggingFindPanel = false
-let dragOffset = { x: 0, y: 0 }
-
-const startDragFindPanel = (e) => {
-  isDraggingFindPanel = true
-  dragOffset.x = e.clientX - findPanelPos.value.x
-  dragOffset.y = e.clientY - findPanelPos.value.y
-  document.addEventListener('mousemove', handleDragFindPanel)
-  document.addEventListener('mouseup', stopDragFindPanel)
-  e.preventDefault()
-}
-
-const handleDragFindPanel = (e) => {
-  if (!isDraggingFindPanel) return
-  findPanelPos.value.x = e.clientX - dragOffset.x
-  findPanelPos.value.y = e.clientY - dragOffset.y
-}
-
-const stopDragFindPanel = () => {
-  isDraggingFindPanel = false
-  document.removeEventListener('mousemove', handleDragFindPanel)
-  document.removeEventListener('mouseup', stopDragFindPanel)
-}
 
 const openFindReplacePanel = (mode) => {
   // 切换功能时，先关闭之前的悬浮窗并清除高亮
@@ -407,21 +401,45 @@ const closeAllTabs = () => {
   Array.from(openTabs.value).forEach(t => closeTab(t.id))
 }
 
-// AI润色
+// ==========AI润色悬浮窗==========
+const polishPanelVisible = ref(false)
+const polishedContent = ref('')
+
 const handlePolish = async () => {
+  console.log('handlePolish called', { currentNote: currentNote.value?.id, aiConfig: aiConfig.value })
   if (!currentNote.value) {
     alert('请先选择一条笔记再执行润色')
     return
   }
-  if (!confirm('确定要AI润色并覆盖当前笔记内容吗？')) return
+  if (!aiConfig.value.baseUrl || !aiConfig.value.apiKey || !aiConfig.value.model) {
+    alert('请先配置AI接口（点击"AI配置"按钮）')
+    return
+  }
   try {
-    const result = await polishMarkdown(currentNote.value.content, aiConfig.baseUrl, aiConfig.apiKey)
-    // 通过 emit 更新内容
-    defineEmits(['update:modelValue'])
-    // 直接保存
-    updateNote(currentNote.value.id, { content: result })
+    const result = await polishMarkdown(currentNote.value.content, aiConfig.value.baseUrl, aiConfig.value.apiKey, aiConfig.value.model)
+    console.log('Polish result:', result)
+    polishedContent.value = result
+    polishPanelVisible.value = true
   } catch (err) {
+    console.error('Polish error:', err)
     alert('润色失败：' + err.message)
   }
+}
+
+// 丢弃润色结果
+const discardPolish = () => {
+  polishPanelVisible.value = false
+  polishedContent.value = ''
+}
+
+// 应用润色结果（覆盖原内容）
+const applyPolish = () => {
+  const result = polishedContent.value
+  // 通过 emit 更新内容
+  emit('update:modelValue', result)
+  // 保存笔记
+  updateNote(currentNote.value.id, { content: result })
+  // 关闭悬浮窗
+  discardPolish()
 }
 </script>

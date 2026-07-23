@@ -1,15 +1,16 @@
-export const polishMarkdown = async (content, baseUrl, apiKey) => {
+export const polishMarkdown = async (content, baseUrl, apiKey, model) => {
   if (!baseUrl || !apiKey) throw new Error('请先配置AI接口地址和密钥')
+  if (!model) throw new Error('请先配置AI模型')
   if (!content?.trim()) throw new Error('笔记内容不能为空，无法润色')
 
-  const res = await fetch(baseUrl, {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
+      model: model,
       messages: [
         {
           role: 'system',

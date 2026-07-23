@@ -1,6 +1,6 @@
 <template>
-  <div class="h-full">
-    <div ref="vditorRef" style="min-height: 400px;"></div>
+  <div class="h-full flex flex-col overflow-hidden">
+    <div ref="vditorRef" class="flex-1 overflow-hidden"></div>
   </div>
 </template>
 

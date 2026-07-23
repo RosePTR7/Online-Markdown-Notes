@@ -8,7 +8,8 @@ const openTabs = ref([])
 const activeId = ref('')
 const aiConfig = ref({
   baseUrl: '',
-  apiKey: ''
+  apiKey: '',
+  model: ''
 })
 
 // 当前选中笔记（模块级别 computed）
@@ -27,8 +28,9 @@ export function useNoteStore() {
     const record = await aiConfigTable.get('global')
     if (record) {
       aiConfig.value = {
-        baseUrl: record.baseUrl,
-        apiKey: record.apiKey
+        baseUrl: record.baseUrl || '',
+        apiKey: record.apiKey || '',
+        model: record.model || ''
       }
     }
   }
@@ -38,7 +40,8 @@ export function useNoteStore() {
     await aiConfigTable.put({
       id: 'global',
       baseUrl: aiConfig.value.baseUrl,
-      apiKey: aiConfig.value.apiKey
+      apiKey: aiConfig.value.apiKey,
+      model: aiConfig.value.model
     })
   }
 

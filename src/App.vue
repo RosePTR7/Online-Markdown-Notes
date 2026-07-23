@@ -2,8 +2,7 @@
   <div v-if="loading" class="w-full h-screen flex items-center justify-center text-lg text-gray-500">
     笔记加载中...
   </div>
-  <div v-else class="h-screen flex overflow-hidden bg-slate-50 font-['system-ui','-apple-system','PingFang SC','Microsoft YaHei',sans-serif]">
-    <!-- 左侧：标题 + 侧边栏 -->
+    <div v-else class="h-screen flex overflow-hidden bg-slate-50 ...">    <!-- 左侧：标题 + 侧边栏 -->
     <div class="flex flex-col bg-white shrink-0 overflow-hidden" :style="{ width: sidebarWidth + 'px' }">
       <!-- 标题 -->
       <div class="px-4 py-3 border-b border-slate-200">
