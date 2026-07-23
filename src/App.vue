@@ -1,22 +1,24 @@
 <template>
-  <div v-if="loading" class="w-full h-screen flex items-center justify-center text-lg text-gray-500">
+  <div v-if="loading" class="w-full h-screen flex items-center justify-center text-lg" :class="isDark ? 'text-slate-400 bg-slate-900' : 'text-gray-500 bg-white'">
     笔记加载中...
   </div>
-    <div v-else class="h-screen flex overflow-hidden bg-slate-50 ...">    <!-- 左侧：标题 + 侧边栏 -->
-    <div class="flex flex-col bg-white shrink-0 overflow-hidden" :style="{ width: sidebarWidth + 'px' }">
+  <div v-else class="h-screen flex overflow-hidden transition-colors duration-300" :class="isDark ? 'bg-slate-900' : 'bg-slate-50'">
+    <!-- 左侧：标题 + 侧边栏 -->
+    <div class="flex flex-col shrink-0 overflow-hidden transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'" :style="{ width: sidebarWidth + 'px' }">
       <!-- 标题 -->
-      <div class="px-4 py-3 border-b border-slate-200">
-        <span class="font-bold text-slate-800 text-xl">在线Markdown笔记</span>
+      <div class="px-4 py-3 border-b transition-colors duration-300" :class="isDark ? 'border-slate-700' : 'border-slate-200'">
+        <span class="font-bold text-xl transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">在线Markdown笔记</span>
       </div>
       <!-- 分隔线 -->
-      <div class="h-px bg-slate-200"></div>
+      <div class="h-px transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-200'"></div>
       <!-- 侧边栏 -->
       <Sidebar />
     </div>
 
     <!-- 分界线（可拖拽） -->
     <div
-      class="w-0.5 bg-slate-400 shrink-0 cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 transition-colors"
+      class="w-0.5 shrink-0 cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 transition-colors"
+      :class="isDark ? 'bg-slate-600' : 'bg-slate-400'"
       @mousedown="startResize"
     ></div>
 
@@ -29,23 +31,24 @@
         :isUnsaved="isUnsaved"
         @undo="handleUndo"
         @redo="handleRedo"
+        @set-theme="handleSetTheme"
       />
     </div>
 
     <!-- AI配置弹窗 -->
     <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white p-5 rounded w-96">
-        <h3 class="text-lg font-bold mb-3 text-slate-800">AI接口配置</h3>
+      <div class="p-5 rounded w-96 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
+        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">AI接口配置</h3>
         <div class="mb-2">
-          <label class="text-slate-700">API BaseURL</label>
-          <input v-model="aiConfig.baseUrl" class="w-full border border-slate-300 p-2 mt-1 rounded outline-none focus:border-indigo-400"/>
+          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
+          <input v-model="aiConfig.baseUrl" class="w-full border p-2 mt-1 rounded outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
-        <div class="mb-3">
-          <label class="text-slate-700">API Key</label>
-          <input v-model="aiConfig.apiKey" class="w-full border border-slate-300 p-2 mt-1 rounded outline-none focus:border-indigo-400"/>
+        <div class="mb-2">
+          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
+          <input v-model="aiConfig.apiKey" class="w-full border p-2 mt-1 rounded outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
         <div class="flex justify-end gap-2">
-          <button class="px-3 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700" @click="showSetting=false">取消</button>
+          <button class="px-3 py-1 rounded transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showSetting=false">取消</button>
           <button class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded" @click="saveAiConfig()">保存</button>
         </div>
       </div>
@@ -54,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, provide, computed } from 'vue'
 import { useNoteStore } from './stores/useNoteStore'
 import Sidebar from './components/Sidebar.vue'
 import EditorArea from './components/EditorArea.vue'
@@ -228,6 +231,21 @@ const doReplace = () => {
 
 // 主题模式
 const themeMode = ref('light')
+const isDark = ref(false)
+
+// 监听主题变化
+watch(themeMode, (newVal) => {
+  isDark.value = newVal === 'dark'
+}, { immediate: true })
+
+// 设置主题
+const handleSetTheme = (mode) => {
+  themeMode.value = mode
+}
+
+// 提供主题给子组件
+provide('themeMode', themeMode)
+provide('isDark', isDark)
 
 // 切换笔记
 watch(currentNote, (note) => {

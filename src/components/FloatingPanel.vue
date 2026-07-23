@@ -1,17 +1,18 @@
 <template>
   <div
     v-if="visible"
-    class="fixed z-50 bg-white border border-slate-300 rounded-lg shadow-lg"
-    :class="panelClass"
+    class="fixed z-50 rounded-lg shadow-lg transition-colors duration-300"
+    :class="[panelClass, isDark ? 'bg-slate-800 border border-slate-600' : 'bg-white border border-slate-300']"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
   >
     <!-- 拖拽手柄 -->
     <div
-      class="flex items-center justify-between px-4 py-2 cursor-move bg-slate-50 rounded-t-lg border-b border-slate-200"
+      class="flex items-center justify-between px-4 py-2 cursor-move rounded-t-lg border-b transition-colors duration-300"
+      :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'"
       @mousedown="startDrag"
     >
-      <span class="text-sm font-medium text-slate-700">{{ title }}</span>
-      <button class="px-2 py-0.5 text-slate-400 hover:text-slate-600 text-lg leading-none" @click="close" title="关闭">✕</button>
+      <span class="text-sm font-medium transition-colors duration-300" :class="isDark ? 'text-slate-200' : 'text-slate-700'">{{ title }}</span>
+      <button class="px-2 py-0.5 text-lg leading-none transition-colors duration-300" :class="isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'" @click="close" title="关闭">✕</button>
     </div>
     <!-- 内容区域 -->
     <div class="px-4 py-3">
@@ -21,7 +22,9 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onBeforeUnmount, inject } from 'vue'
+
+const isDark = inject('isDark', ref(false))
 
 const props = defineProps({
   visible: {

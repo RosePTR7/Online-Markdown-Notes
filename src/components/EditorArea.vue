@@ -1,38 +1,38 @@
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden bg-white relative">
+  <div class="flex-1 flex flex-col overflow-hidden relative transition-colors duration-300" :class="isDark ? 'bg-slate-900' : 'bg-white'">
     <!-- 顶部工具栏区域 -->
-    <div v-if="currentNote" class="flex flex-col shrink-0 bg-slate-50">
+    <div v-if="currentNote" class="flex flex-col shrink-0 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-slate-50'">
       <!-- 按钮栏 - 最上面 -->
       <div class="flex items-center px-3 py-2 gap-3">
         <!-- 编辑/查看按钮组 - 圆角矩形包裹 -->
-        <div class="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5">
+        <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-100'">
           <div class="relative" ref="editMenuRef">
-            <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-base border border-slate-200" @click="togglePanel('edit')">编辑</button>
+            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('edit')">编辑</button>
             <!-- 编辑下拉菜单 -->
-            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-40">
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="doUndo()">撤销</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="doRedo()">恢复</div>
-              <div class="border-t border-slate-200 my-1"></div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel()">查找和替换</div>
+            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="doUndo()">撤销</div>
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="doRedo()">恢复</div>
+              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="openFindReplacePanel()">查找和替换</div>
             </div>
           </div>
           <div class="relative" ref="viewMenuRef">
-            <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-base border border-slate-200" @click="togglePanel('view')">查看</button>
+            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view')">查看</button>
             <!-- 查看下拉菜单 -->
-            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-36">
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="themeMode = 'light'">☀️ 亮色</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="themeMode = 'dark'">🌙 暗色</div>
+            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-36 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="setTheme('light')">☀️ 亮色</div>
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="setTheme('dark')">🌙 暗色</div>
             </div>
           </div>
         </div>
         
         <!-- AI配置按钮 -->
-        <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-base border border-slate-300" @click="showSetting=true">AI配置</button>
+        <button class="px-4 py-1.5 rounded-xl text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'" @click="showSetting=true">AI配置</button>
         <div class="flex-1"></div>
         
         <!-- 保存状态 - 圆角矩形色块 -->
         <div 
-          class="px-3 py-1 rounded-lg text-sm font-medium shrink-0"
+          class="px-3 py-1 rounded-lg text-sm font-medium shrink-0 transition-colors duration-300"
           :class="isUnsaved ? 'bg-red-500 text-white' : 'bg-green-500 text-white'"
         >
           {{ isUnsaved ? '未保存' : '已保存' }}
@@ -43,8 +43,8 @@
       </div>
       
       <!-- 标签页区域 - 紧贴编辑器 -->
-      <div class="flex items-end px-2 border-b border-slate-400">
-        <div class="flex-1 flex gap-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+      <div class="flex items-end px-2 border-b transition-colors duration-300" :class="isDark ? 'border-slate-600' : 'border-slate-400'">
+        <div class="flex-1 flex gap-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-track-transparent transition-colors duration-300" :class="isDark ? 'scrollbar-thumb-slate-500' : 'scrollbar-thumb-slate-300'">
           <draggable
             v-model="tabList"
             item-key="id"
@@ -54,10 +54,10 @@
           >
             <template #item="{ element: tab }">
               <div
-                class="px-4 py-1.5 rounded-t-lg cursor-pointer flex items-center gap-2 shrink-0 max-w-[200px] border border-b-0 -mb-px"
-                :class="activeId === tab.id
-                  ? 'bg-white text-indigo-600 border-slate-200'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-400'"
+                class="px-4 py-1.5 rounded-t-lg cursor-pointer flex items-center gap-2 shrink-0 max-w-[200px] border border-b-0 -mb-px transition-colors duration-300"
+                :class="isDark
+                  ? (activeId === tab.id ? 'bg-slate-900 text-indigo-300 border-slate-600' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 border-slate-500')
+                  : (activeId === tab.id ? 'bg-white text-indigo-600 border-slate-200' : 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-400')"
                 @click="openNote(tab.id)"
                 @contextmenu.prevent="openTabContextMenu(tab.id, $event)"
               >
@@ -77,13 +77,14 @@
       @click="tabMenuVisible = false"
     >
       <div
-        class="fixed bg-white shadow-lg border rounded-xl py-1 z-50 w-32"
+        class="fixed shadow-lg border rounded-xl py-1 z-50 w-32 transition-colors duration-300"
+        :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'"
         :style="{ left: tabMenuX + 'px', top: tabMenuY + 'px' }"
         @click.stop
       >
-        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm rounded-lg mx-1" @click="tabRename">重命名</div>
-        <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm rounded-lg mx-1" @click="closeOtherTabs">删除其他</div>
-        <div class="px-3 py-2 hover:bg-red-50 cursor-pointer text-sm text-red-500 rounded-lg mx-1" @click="closeAllTabs">删除所有</div>
+        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-gray-100 text-slate-700'" @click="tabRename">重命名</div>
+        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-gray-100 text-slate-700'" @click="closeOtherTabs">删除其他</div>
+        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-red-900/50 text-red-400' : 'hover:bg-red-50 text-red-500'" @click="closeAllTabs">删除所有</div>
       </div>
     </div>
 
@@ -98,8 +99,8 @@
         <!-- 查找行 -->
         <div class="flex items-center gap-2">
           <button 
-            class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-500 transition-transform"
-            :class="{ 'rotate-90': showReplace }"
+            class="w-6 h-6 flex items-center justify-center transition-colors duration-300"
+            :class="[showReplace ? 'rotate-90' : '', isDark ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-500']"
             @click="showReplace = !showReplace"
             title="展开/收起替换"
           >▶</button>
@@ -107,12 +108,13 @@
             v-model="findKeyword"
             type="text"
             placeholder="查找内容..."
-            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            class="flex-1 px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+            :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
             @keyup.enter="doFind"
             ref="findInputRef"
           />
-          <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
-          <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
+          <span v-if="findCount !== null" class="text-xs whitespace-nowrap transition-colors duration-300" :class="isDark ? 'text-slate-400' : 'text-slate-500'">{{ findCount }} 处</span>
+          <button class="px-3 py-1 rounded text-sm shrink-0 transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'" @click="doFind">查找</button>
         </div>
         <!-- 替换行（可展开） -->
         <div v-if="showReplace" class="flex items-center gap-2 pl-8">
@@ -120,7 +122,8 @@
             v-model="replaceKeyword"
             type="text"
             placeholder="替换为..."
-            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            class="flex-1 px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+            :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
             @keyup.enter="doReplaceAll"
           />
           <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
@@ -138,12 +141,14 @@
       <div class="flex flex-col gap-3">
         <textarea
           v-model="polishedContent"
-          class="w-full h-64 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-400 resize-none"
+          class="w-full h-64 px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 resize-none transition-colors duration-300"
+          :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
           placeholder="润色后的内容..."
         ></textarea>
         <div class="flex justify-end gap-3">
           <button
-            class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm border border-slate-300"
+            class="px-5 py-2 rounded-xl text-sm border transition-colors duration-300"
+            :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'"
             @click="discardPolish"
           >丢弃</button>
           <button
@@ -156,22 +161,22 @@
 
     <!-- AI配置弹窗 -->
     <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white p-5 rounded-xl w-96">
-        <h3 class="text-lg font-bold mb-3 text-slate-800">AI接口配置</h3>
+      <div class="p-5 rounded-xl w-96 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
+        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">AI接口配置</h3>
         <div class="mb-2">
-          <label class="text-slate-700">API BaseURL</label>
-          <input v-model="aiConfig.baseUrl" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
+          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
+          <input v-model="aiConfig.baseUrl" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
         <div class="mb-2">
-          <label class="text-slate-700">API Key</label>
-          <input v-model="aiConfig.apiKey" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400"/>
+          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
+          <input v-model="aiConfig.apiKey" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
         <div class="mb-3">
-          <label class="text-slate-700">AI模型</label>
-          <input v-model="aiConfig.model" class="w-full border border-slate-300 p-2 mt-1 rounded-lg outline-none focus:border-indigo-400" placeholder="例如: qwen3.7-plus"/>
+          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">AI模型</label>
+          <input v-model="aiConfig.model" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'" placeholder="例如: qwen3.7-plus"/>
         </div>
         <div class="flex justify-end gap-2">
-          <button class="px-3 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700" @click="showSetting=false">取消</button>
+          <button class="px-3 py-1 rounded-lg transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showSetting=false">取消</button>
           <button class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg" @click="saveAiConfig()">保存</button>
         </div>
       </div>
@@ -184,12 +189,12 @@
       @update:modelValue="$emit('update:modelValue', $event)"
       class="flex-1 overflow-hidden"
     />
-    <div v-else class="flex items-center justify-center flex-1 text-gray-400">请新建/选择一条笔记</div>
+    <div v-else class="flex items-center justify-center flex-1 transition-colors duration-300" :class="isDark ? 'text-slate-500' : 'text-gray-400'">请新建/选择一条笔记</div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, computed, onBeforeUnmount } from 'vue'
+import { ref, nextTick, computed, onBeforeUnmount, inject } from 'vue'
 import { useNoteStore } from '../stores/useNoteStore'
 import MdEditor from './MdEditor.vue'
 import FloatingPanel from './FloatingPanel.vue'
@@ -207,7 +212,15 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'undo', 'redo'])
+const emit = defineEmits(['update:modelValue', 'undo', 'redo', 'set-theme'])
+
+// 注入主题
+const isDark = inject('isDark', ref(false))
+
+// 设置主题 - 通过emit通知App.vue更改
+const setTheme = (mode) => {
+  emit('set-theme', mode)
+}
 
 const mdEditor = ref(null)
 
@@ -239,9 +252,6 @@ document.addEventListener('click', closePanelOnClickOutside)
 onBeforeUnmount(() => {
   document.removeEventListener('click', closePanelOnClickOutside)
 })
-
-// 主题模式
-const themeMode = ref('light')
 
 // AI配置弹窗
 const showSetting = ref(false)
