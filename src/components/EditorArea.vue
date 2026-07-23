@@ -9,12 +9,11 @@
           <div class="relative" ref="editMenuRef">
             <button class="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-base border border-slate-200" @click="togglePanel('edit')">编辑</button>
             <!-- 编辑下拉菜单 -->
-            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-36">
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="handleUndo()">撤销</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="handleRedo()">恢复</div>
+            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 w-40">
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="doUndo()">撤销</div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="doRedo()">恢复</div>
               <div class="border-t border-slate-200 my-1"></div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel('find')">查找</div>
-              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel('replace')">替换</div>
+              <div class="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm text-slate-700 rounded-lg mx-1" @click="openFindReplacePanel()">查找和替换</div>
             </div>
           </div>
           <div class="relative" ref="viewMenuRef">
@@ -91,30 +90,41 @@
     <!-- 查找/替换悬浮窗口 - 使用通用悬浮窗组件 -->
     <FloatingPanel
       :visible="findPanelVisible"
-      :title="showReplace ? '替换' : '查找'"
+      title="查找和替换"
+      panel-class="min-w-[400px]"
       @close="closeFindPanel"
     >
-      <div class="flex items-center gap-2 mb-2">
-        <input
-          v-model="findKeyword"
-          type="text"
-          placeholder="查找内容..."
-          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-          @keyup.enter="doFind"
-          ref="findInputRef"
-        />
-        <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
-        <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
-      </div>
-      <div v-if="showReplace" class="flex items-center gap-2">
-        <input
-          v-model="replaceKeyword"
-          type="text"
-          placeholder="替换为..."
-          class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
-          @keyup.enter="doReplaceAll"
-        />
-        <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+      <div class="flex flex-col gap-2">
+        <!-- 查找行 -->
+        <div class="flex items-center gap-2">
+          <button 
+            class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-500 transition-transform"
+            :class="{ 'rotate-90': showReplace }"
+            @click="showReplace = !showReplace"
+            title="展开/收起替换"
+          >▶</button>
+          <input
+            v-model="findKeyword"
+            type="text"
+            placeholder="查找内容..."
+            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            @keyup.enter="doFind"
+            ref="findInputRef"
+          />
+          <span v-if="findCount !== null" class="text-xs text-slate-500 whitespace-nowrap">{{ findCount }} 处</span>
+          <button class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-sm shrink-0" @click="doFind">查找</button>
+        </div>
+        <!-- 替换行（可展开） -->
+        <div v-if="showReplace" class="flex items-center gap-2 pl-8">
+          <input
+            v-model="replaceKeyword"
+            type="text"
+            placeholder="替换为..."
+            class="flex-1 px-2 py-1 border border-slate-300 rounded text-sm outline-none focus:border-indigo-400"
+            @keyup.enter="doReplaceAll"
+          />
+          <button class="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-sm shrink-0" @click="doReplaceAll">替换全部</button>
+        </div>
       </div>
     </FloatingPanel>
 
@@ -197,14 +207,15 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'undo', 'redo'])
 
 const mdEditor = ref(null)
 
 const getVditor = () => mdEditor.value?.getVditor?.()
 
-const handleUndo = () => getVditor()?.undo?.()
-const handleRedo = () => getVditor()?.redo?.()
+// 撤销/恢复 - 通过emit调用App.vue的逻辑
+const doUndo = () => emit('undo')
+const doRedo = () => emit('redo')
 
 // ==========编辑/查看面板==========
 const activePanel = ref(null) // 'edit' | 'view' | null
@@ -279,13 +290,8 @@ const replaceKeyword = ref('')
 const findCount = ref(null)
 const findInputRef = ref(null)
 
-const openFindReplacePanel = (mode) => {
-  // 切换功能时，先关闭之前的悬浮窗并清除高亮
-  if (findPanelVisible.value) {
-    clearHighlight()
-  }
+const openFindReplacePanel = () => {
   findPanelVisible.value = true
-  showReplace.value = (mode === 'replace')
   findKeyword.value = ''
   replaceKeyword.value = ''
   findCount.value = null
@@ -339,7 +345,7 @@ const doReplaceAll = () => {
   doFind()
 }
 
-defineExpose({ handleUndo, handleRedo, handleFind, handleReplace, openFindReplacePanel, setContent, closeFindPanel })
+defineExpose({ handleFind, handleReplace, openFindReplacePanel, setContent, closeFindPanel, doFind, doReplaceAll })
 
 const noteStore = useNoteStore()
 const {

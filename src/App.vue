@@ -27,6 +27,8 @@
         ref="editorAreaRef"
         v-model="editorContent"
         :isUnsaved="isUnsaved"
+        @undo="handleUndo"
+        @redo="handleRedo"
       />
     </div>
 
