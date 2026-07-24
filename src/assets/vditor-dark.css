@@ -1,0 +1,120 @@
+/* Vditor 暗色主题样式覆盖 */
+.is-dark .vditor {
+  --border-color: #334155 !important;
+  --second-color: #94a3b8 !important;
+  --panel-background-color: #1e293b !important;
+  --textarea-background-color: #0f172a !important;
+  --textarea-text-color: #e2e8f0 !important;
+}
+
+/* 搜索结果高亮样式 */
+.vditor-reset mark,
+.vditor-reset .vditor-search--selected {
+  background-color: #fbbf24 !important;
+  color: #1f2937 !important;
+  padding: 0 2px !important;
+  border-radius: 2px !important;
+}
+
+.is-dark .vditor-reset mark,
+.is-dark .vditor-reset .vditor-search--selected {
+  background-color: #f59e0b !important;
+  color: #1f2937 !important;
+}
+
+.is-dark .vditor-content {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+.is-dark .vditor-ir .vditor-reset {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+.is-dark .vditor-reset {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+.is-dark .vditor-editarea {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+/* 暗色主题下代码块样式 */
+.is-dark .vditor-reset pre code {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.is-dark .vditor-reset code {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+/* 暗色主题下引用块样式 */
+.is-dark .vditor-reset blockquote {
+  border-left-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+
+/* 暗色主题下表格样式 */
+.is-dark .vditor-reset table {
+  border-color: #334155 !important;
+}
+
+.is-dark .vditor-reset table th,
+.is-dark .vditor-reset table td {
+  border-color: #334155 !important;
+}
+
+/* 暗色主题下链接样式 */
+.is-dark .vditor-reset a {
+  color: #60a5fa !important;
+}
+
+/* 暗色主题下标题样式 */
+.is-dark .vditor-reset h1,
+.is-dark .vditor-reset h2,
+.is-dark .vditor-reset h3,
+.is-dark .vditor-reset h4,
+.is-dark .vditor-reset h5,
+.is-dark .vditor-reset h6 {
+  color: #f1f5f9 !important;
+}
+
+/* 暗色主题下 hr 样式 */
+.is-dark .vditor-reset hr {
+  border-color: #334155 !important;
+}
+
+/* 暗色主题下工具栏样式 */
+.is-dark .vditor-toolbar {
+  background-color: #1e293b !important;
+  border-bottom-color: #334155 !important;
+}
+
+.is-dark .vditor-toolbar .vditor-toolbar__item {
+  color: #94a3b8 !important;
+}
+
+.is-dark .vditor-toolbar .vditor-toolbar__item:hover {
+  color: #e2e8f0 !important;
+  background-color: #334155 !important;
+}
+
+/* 暗色主题下 outline 样式 */
+.is-dark .vditor-outline {
+  background-color: #1e293b !important;
+  border-left-color: #334155 !important;
+}
+
+.is-dark .vditor-outline .vditor-outline__item {
+  color: #94a3b8 !important;
+}
+
+.is-dark .vditor-outline .vditor-outline__item:hover {
+  color: #e2e8f0 !important;
+  background-color: #334155 !important;
+}

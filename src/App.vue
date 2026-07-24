@@ -35,29 +35,11 @@
       />
     </div>
 
-    <!-- AI配置弹窗 -->
-    <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="p-5 rounded w-96 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
-        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">AI接口配置</h3>
-        <div class="mb-2">
-          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
-          <input v-model="aiConfig.baseUrl" class="w-full border p-2 mt-1 rounded outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
-        </div>
-        <div class="mb-2">
-          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
-          <input v-model="aiConfig.apiKey" class="w-full border p-2 mt-1 rounded outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
-        </div>
-        <div class="flex justify-end gap-2">
-          <button class="px-3 py-1 rounded transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showSetting=false">取消</button>
-          <button class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded" @click="saveAiConfig()">保存</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, provide, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, provide } from 'vue'
 import { useNoteStore } from './stores/useNoteStore'
 import Sidebar from './components/Sidebar.vue'
 import EditorArea from './components/EditorArea.vue'
@@ -65,7 +47,7 @@ import EditorArea from './components/EditorArea.vue'
 const noteStore = useNoteStore()
 const {
   aiConfig, currentNote,
-  loadNotes, loadAiConfig, updateNote, saveAiConfig
+  loadNotes, loadAiConfig, updateNote
 } = noteStore
 
 let loading = ref(true)
@@ -208,34 +190,17 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', flushSave)
 })
 
-const showSetting = ref(false)
 const editorContent = ref('')
 
-// 打开查找/替换悬浮窗口
-const openFindReplace = (mode) => {
-  editorAreaRef.value?.openFindReplacePanel(mode)
-}
-
-// 查找替换（供悬浮窗口调用）
-const findKeyword = ref('')
-const replaceKeyword = ref('')
-const findCount = ref(null)
-
-const doFind = () => {
-  findCount.value = editorAreaRef.value?.handleFind(findKeyword.value) ?? 0
-}
-const doReplace = () => {
-  editorAreaRef.value?.handleReplace(findKeyword.value, replaceKeyword.value)
-  doFind()
-}
-
-// 主题模式
-const themeMode = ref('light')
+// 主题模式 - 从 localStorage 读取，默认为 'light'
+const themeMode = ref(localStorage.getItem('themeMode') || 'light')
 const isDark = ref(false)
 
 // 监听主题变化
 watch(themeMode, (newVal) => {
   isDark.value = newVal === 'dark'
+  // 持久化主题设置
+  localStorage.setItem('themeMode', newVal)
 }, { immediate: true })
 
 // 设置主题

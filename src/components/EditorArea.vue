@@ -322,8 +322,8 @@ const closeFindPanel = () => {
 const clearHighlight = () => {
   const vditor = getVditor()
   if (vditor) {
-    // 使用 Vditor 的 search 方法，传入空字符串清除高亮
     try {
+      // 使用 Vditor 的 search 方法清除高亮
       vditor.search('', '', { isCaseSensitive: false })
     } catch (e) {
       // 忽略错误
@@ -343,9 +343,15 @@ const doFind = () => {
   const vditor = getVditor()
   if (vditor) {
     try {
-      vditor.search(keyword, '', { isCaseSensitive: false })
+      // Vditor search 方法: search(searchValue, replaceValue, options)
+      // 传入空的 replaceValue 表示只搜索不替换，会高亮显示匹配项
+      vditor.search(keyword, '', { 
+        isCaseSensitive: false,
+        isRegexp: false,
+        isReverse: false
+      })
     } catch (e) {
-      // 忽略错误
+      console.error('Search error:', e)
     }
   }
 }
