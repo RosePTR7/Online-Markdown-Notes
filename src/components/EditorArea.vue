@@ -19,9 +19,11 @@
           <div class="relative" ref="viewMenuRef">
             <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view')">查看</button>
             <!-- 查看下拉菜单 -->
-            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-36 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="setTheme('light')">☀️ 亮色</div>
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="setTheme('dark')">🌙 暗色</div>
+            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'light' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('light')">☀️ 亮色</div>
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'dark' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('dark')">🌙 暗色</div>
+              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
+              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'system' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('system')">💻 跟随系统</div>
             </div>
           </div>
         </div>
@@ -30,12 +32,26 @@
         <button class="px-4 py-1.5 rounded-xl text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'" @click="showSetting=true">AI配置</button>
         <div class="flex-1"></div>
         
-        <!-- 保存状态 - 圆角矩形色块 -->
-        <div 
-          class="px-3 py-1 rounded-lg text-sm font-medium shrink-0 transition-colors duration-300"
-          :class="isUnsaved ? 'bg-red-500 text-white' : 'bg-green-500 text-white'"
-        >
-          {{ isUnsaved ? '未保存' : '已保存' }}
+        <!-- 保存状态区域 -->
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- 加载转圈动画 - 未保存时显示 -->
+          <svg 
+            v-if="isUnsaved" 
+            class="animate-spin h-4 w-4 text-indigo-500" 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <!-- 保存状态 - 圆角矩形色块 -->
+          <div 
+            class="px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-300"
+            :class="isUnsaved ? 'bg-red-500 text-white' : 'bg-green-500 text-white'"
+          >
+            {{ isUnsaved ? '未保存' : '已保存' }}
+          </div>
         </div>
         
         <!-- AI一键润色按钮 - 圆角矩形 -->
@@ -131,6 +147,27 @@
       </div>
     </FloatingPanel>
 
+    <!-- AI润色加载悬浮窗 -->
+    <FloatingPanel
+      :visible="polishLoading"
+      title="AI润色"
+      panel-class="min-w-[300px]"
+    >
+      <div class="flex flex-col items-center gap-3 py-4">
+        <!-- 加载动画 -->
+        <svg 
+          class="animate-spin h-8 w-8 text-indigo-500" 
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-sm transition-colors duration-300" :class="isDark ? 'text-slate-200' : 'text-slate-700'">AI润色中...</p>
+      </div>
+    </FloatingPanel>
+
     <!-- AI润色悬浮窗 -->
     <FloatingPanel
       :visible="polishPanelVisible"
@@ -182,6 +219,45 @@
       </div>
     </div>
 
+    <!-- 消息提示悬浮窗 -->
+    <FloatingPanel
+      :visible="messagePanelVisible"
+      :title="messagePanelTitle"
+      panel-class="min-w-[300px] max-w-[400px]"
+      @close="closeMessagePanel"
+    >
+      <div class="flex flex-col gap-3">
+        <p class="text-sm transition-colors duration-300" :class="isDark ? 'text-slate-200' : 'text-slate-700'">{{ messagePanelContent }}</p>
+        <div class="flex justify-end">
+          <button class="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm" @click="closeMessagePanel">确定</button>
+        </div>
+      </div>
+    </FloatingPanel>
+
+    <!-- 输入悬浮窗 -->
+    <FloatingPanel
+      :visible="inputPanelVisible"
+      :title="inputPanelTitle"
+      panel-class="min-w-[350px]"
+      @close="closeInputPanel"
+    >
+      <div class="flex flex-col gap-3">
+        <input
+          v-model="inputPanelValue"
+          type="text"
+          class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+          :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
+          :placeholder="inputPanelPlaceholder"
+          @keyup.enter="confirmInputPanel"
+          ref="inputPanelRef"
+        />
+        <div class="flex justify-end gap-2">
+          <button class="px-4 py-1.5 rounded-lg text-sm border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'" @click="closeInputPanel">取消</button>
+          <button class="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm" @click="confirmInputPanel">确定</button>
+        </div>
+      </div>
+    </FloatingPanel>
+
     <MdEditor
       ref="mdEditor"
       v-if="currentNote"
@@ -216,6 +292,7 @@ const emit = defineEmits(['update:modelValue', 'undo', 'redo', 'set-theme'])
 
 // 注入主题
 const isDark = inject('isDark', ref(false))
+const themeMode = inject('themeMode', ref('light'))
 
 // 设置主题 - 通过emit通知App.vue更改
 const setTheme = (mode) => {
@@ -318,17 +395,117 @@ const closeFindPanel = () => {
   clearHighlight()
 }
 
-// 清除高亮
-const clearHighlight = () => {
+// 获取编辑器渲染区域 - 使用更可靠的方式
+const getEditorElement = () => {
+  // 直接通过 DOM 查询获取编辑区域
+  // vditor ir 模式下的编辑区域是 [contenteditable] 元素
+  const editableElement = document.querySelector('.vditor-ir .vditor-reset[contenteditable]')
+  if (editableElement) return editableElement
+  
+  // 备用方案：尝试通过 vditor 实例获取
   const vditor = getVditor()
-  if (vditor) {
-    try {
-      // 使用 Vditor 的 search 方法清除高亮
-      vditor.search('', '', { isCaseSensitive: false })
-    } catch (e) {
-      // 忽略错误
-    }
+  if (vditor?.vditor?.ir?.element) {
+    return vditor.vditor.ir.element
   }
+  
+  // 最后尝试
+  return document.querySelector('.vditor-reset')
+}
+
+// 清除高亮 - 将所有高亮 span 还原为文本
+const clearHighlight = () => {
+  const editorElement = getEditorElement()
+  if (!editorElement) return
+  
+  const highlights = editorElement.querySelectorAll('.vditor-search-highlight')
+  highlights.forEach(span => {
+    const parent = span.parentNode
+    if (parent) {
+      // 用文本内容替换 span
+      const textNode = document.createTextNode(span.textContent || '')
+      parent.replaceChild(textNode, span)
+      // 合并相邻的文本节点
+      parent.normalize()
+    }
+  })
+}
+
+// 高亮匹配的文本
+const highlightMatches = (keyword) => {
+  if (!keyword) return
+  
+  const editorElement = getEditorElement()
+  if (!editorElement) return
+  
+  // 先清除之前的高亮
+  clearHighlight()
+  
+  // 创建高亮正则表达式（转义特殊字符）
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(escapedKeyword, 'gi')
+  
+  // 收集所有文本节点（排除高亮 span 内的）
+  const textNodes = []
+  const walker = document.createTreeWalker(
+    editorElement,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  )
+  
+  let node
+  while (node = walker.nextNode()) {
+    // 跳过空文本节点
+    if (!node.textContent || node.textContent.trim() === '') continue
+    // 跳过已经在高亮 span 内的文本节点
+    if (node.parentElement?.classList.contains('vditor-search-highlight')) continue
+    textNodes.push(node)
+  }
+  
+  // 处理每个文本节点
+  textNodes.forEach(textNode => {
+    const text = textNode.textContent
+    if (!text) return
+    
+    // 检查是否有匹配
+    regex.lastIndex = 0
+    if (!regex.test(text)) return
+    
+    const fragment = document.createDocumentFragment()
+    let lastIndex = 0
+    let match
+    
+    regex.lastIndex = 0
+    while ((match = regex.exec(text)) !== null) {
+      // 添加匹配前的文本
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
+      }
+      
+      // 添加高亮的匹配文本
+      const span = document.createElement('span')
+      span.className = 'vditor-search-highlight'
+      span.style.backgroundColor = '#fbbf24'
+      span.style.color = '#1f2937'
+      span.style.padding = '0 2px'
+      span.style.borderRadius = '2px'
+      span.textContent = match[0]
+      fragment.appendChild(span)
+      
+      lastIndex = regex.lastIndex
+    }
+    
+    // 添加剩余的文本
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    }
+    
+    // 替换原始文本节点
+    if (textNode.parentNode) {
+      textNode.parentNode.replaceChild(fragment, textNode)
+    }
+  })
+  
 }
 
 const doFind = () => {
@@ -339,21 +516,8 @@ const doFind = () => {
     return
   }
   findCount.value = handleFind(keyword) ?? 0
-  // 使用 Vditor 的 search 方法进行高亮
-  const vditor = getVditor()
-  if (vditor) {
-    try {
-      // Vditor search 方法: search(searchValue, replaceValue, options)
-      // 传入空的 replaceValue 表示只搜索不替换，会高亮显示匹配项
-      vditor.search(keyword, '', { 
-        isCaseSensitive: false,
-        isRegexp: false,
-        isReverse: false
-      })
-    } catch (e) {
-      console.error('Search error:', e)
-    }
-  }
+  // 使用手动高亮功能
+  highlightMatches(keyword)
 }
 
 const doReplaceAll = () => {
@@ -396,15 +560,16 @@ const openTabContextMenu = (tabId, e) => {
   tabMenuY.value = e.clientY
 }
 
-// 重命名 - 复用侧边栏的重命名弹窗逻辑
+// 重命名 - 使用输入悬浮窗
 const tabRename = () => {
   tabMenuVisible.value = false
   const targetNote = noteList.value.find(n => n.id === rightClickTabId)
   if (!targetNote) return
-  const newName = prompt('请输入新名称', targetNote.title)
-  if (newName && newName.trim()) {
-    updateNote(rightClickTabId, { title: newName.trim() })
-  }
+  showInputPanel('重命名', targetNote.title, '请输入新名称', (newName) => {
+    if (newName && newName.trim()) {
+      updateNote(rightClickTabId, { title: newName.trim() })
+    }
+  })
 }
 
 // 删除其他标签
@@ -423,20 +588,71 @@ const closeAllTabs = () => {
   Array.from(openTabs.value).forEach(t => closeTab(t.id))
 }
 
+// ==========消息提示悬浮窗==========
+const messagePanelVisible = ref(false)
+const messagePanelTitle = ref('提示')
+const messagePanelContent = ref('')
+
+const showMessagePanel = (title, content) => {
+  messagePanelTitle.value = title
+  messagePanelContent.value = content
+  messagePanelVisible.value = true
+}
+
+const closeMessagePanel = () => {
+  messagePanelVisible.value = false
+  messagePanelContent.value = ''
+}
+
+// ==========输入悬浮窗==========
+const inputPanelVisible = ref(false)
+const inputPanelTitle = ref('输入')
+const inputPanelValue = ref('')
+const inputPanelPlaceholder = ref('')
+const inputPanelRef = ref(null)
+let inputPanelCallback = null
+
+const showInputPanel = (title, defaultValue, placeholder, callback) => {
+  inputPanelTitle.value = title
+  inputPanelValue.value = defaultValue || ''
+  inputPanelPlaceholder.value = placeholder || ''
+  inputPanelCallback = callback
+  inputPanelVisible.value = true
+  nextTick(() => {
+    inputPanelRef.value?.focus()
+  })
+}
+
+const closeInputPanel = () => {
+  inputPanelVisible.value = false
+  inputPanelValue.value = ''
+  inputPanelCallback = null
+}
+
+const confirmInputPanel = () => {
+  if (inputPanelCallback) {
+    inputPanelCallback(inputPanelValue.value)
+  }
+  closeInputPanel()
+}
+
 // ==========AI润色悬浮窗==========
 const polishPanelVisible = ref(false)
 const polishedContent = ref('')
+const polishLoading = ref(false)
 
 const handlePolish = async () => {
   console.log('handlePolish called', { currentNote: currentNote.value?.id, aiConfig: aiConfig.value })
   if (!currentNote.value) {
-    alert('请先选择一条笔记再执行润色')
+    showMessagePanel('提示', '请先选择一条笔记再执行润色')
     return
   }
   if (!aiConfig.value.baseUrl || !aiConfig.value.apiKey || !aiConfig.value.model) {
-    alert('请先配置AI接口（点击"AI配置"按钮）')
+    showMessagePanel('提示', '请先配置AI接口（点击"AI配置"按钮）')
     return
   }
+  // 显示加载悬浮窗
+  polishLoading.value = true
   try {
     const result = await polishMarkdown(currentNote.value.content, aiConfig.value.baseUrl, aiConfig.value.apiKey, aiConfig.value.model)
     console.log('Polish result:', result)
@@ -444,7 +660,10 @@ const handlePolish = async () => {
     polishPanelVisible.value = true
   } catch (err) {
     console.error('Polish error:', err)
-    alert('润色失败：' + err.message)
+    showMessagePanel('错误', '润色失败：' + err.message)
+  } finally {
+    // 关闭加载悬浮窗
+    polishLoading.value = false
   }
 }
 

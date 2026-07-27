@@ -188,19 +188,41 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   flushSave()
   window.removeEventListener('beforeunload', flushSave)
+  mediaQuery.removeEventListener('change', handleSystemThemeChange)
 })
 
 const editorContent = ref('')
 
 // 主题模式 - 从 localStorage 读取，默认为 'light'
+// 支持 'light' | 'dark' | 'system'
 const themeMode = ref(localStorage.getItem('themeMode') || 'light')
 const isDark = ref(false)
+const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+// 监听系统主题变化
+const handleSystemThemeChange = (e) => {
+  systemDark.value = e.matches
+  // 如果当前是跟随系统模式，更新 isDark
+  if (themeMode.value === 'system') {
+    isDark.value = e.matches
+  }
+}
+
+// 初始化系统主题监听
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+mediaQuery.addEventListener('change', handleSystemThemeChange)
 
 // 监听主题变化
 watch(themeMode, (newVal) => {
-  isDark.value = newVal === 'dark'
   // 持久化主题设置
   localStorage.setItem('themeMode', newVal)
+  
+  if (newVal === 'system') {
+    // 跟随系统
+    isDark.value = systemDark.value
+  } else {
+    isDark.value = newVal === 'dark'
+  }
 }, { immediate: true })
 
 // 设置主题
@@ -246,3 +268,10 @@ watch(editorContent, (newVal) => {
   }
 })
 </script>
+
+<style>
+html, body {
+  padding: 0;
+  margin: 0;
+}
+</style>

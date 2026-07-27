@@ -7,9 +7,10 @@
   --textarea-text-color: #e2e8f0 !important;
 }
 
-/* 搜索结果高亮样式 */
+/* 搜索结果高亮样式 - 手动高亮实现 */
 .vditor-reset mark,
-.vditor-reset .vditor-search--selected {
+.vditor-reset .vditor-search--selected,
+.vditor-reset .vditor-search-highlight {
   background-color: #fbbf24 !important;
   color: #1f2937 !important;
   padding: 0 2px !important;
@@ -17,7 +18,8 @@
 }
 
 .is-dark .vditor-reset mark,
-.is-dark .vditor-reset .vditor-search--selected {
+.is-dark .vditor-reset .vditor-search--selected,
+.is-dark .vditor-reset .vditor-search-highlight {
   background-color: #f59e0b !important;
   color: #1f2937 !important;
 }
