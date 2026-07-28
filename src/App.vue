@@ -35,20 +35,26 @@
       />
     </div>
 
+    <!-- 全局模态框 -->
+    <Modal />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, provide } from 'vue'
 import { useNoteStore } from './stores/useNoteStore'
+import { useFolderStore } from './stores/useFolderStore'
 import Sidebar from './components/Sidebar.vue'
 import EditorArea from './components/EditorArea.vue'
+import Modal from './components/Modal.vue'
 
 const noteStore = useNoteStore()
+const folderStore = useFolderStore()
 const {
   aiConfig, currentNote,
   loadNotes, loadAiConfig, updateNote
 } = noteStore
+const { loadFolders } = folderStore
 
 let loading = ref(true)
 const editorAreaRef = ref(null)
@@ -178,6 +184,7 @@ const flushSave = () => {
 onMounted(async () => {
   try {
     await loadNotes()
+    await loadFolders()
     await loadAiConfig()
   } finally {
     loading.value = false

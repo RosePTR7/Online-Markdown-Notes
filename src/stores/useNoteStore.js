@@ -20,7 +20,19 @@ export function useNoteStore() {
   // 从数据库加载全部笔记
   const loadNotes = async () => {
     const list = await noteTable.toArray()
-    noteList.value = list
+    // 数据迁移：为旧笔记添加 folderId 字段
+    const migratedList = list.map(note => ({
+      ...note,
+      folderId: note.folderId ?? null
+    }))
+    noteList.value = migratedList
+    
+    // 如果有迁移的数据，更新数据库
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].folderId === undefined) {
+        await noteTable.put(migratedList[i])
+      }
+    }
   }
 
   // 加载AI配置（固定id=global）
@@ -46,17 +58,19 @@ export function useNoteStore() {
   }
 
   // 新增笔记
-  const addNote = async () => {
+  const addNote = async (folderId = null) => {
     const newNote = {
       id: nanoid(),
       title: '新建无标题笔记',
       content: '# 在这里编写你的Markdown笔记',
+      folderId,
       createTime: Date.now(),
       updateTime: Date.now()
     }
     await noteTable.add(newNote)
     noteList.value.push(newNote)
     openNote(newNote.id)
+    return newNote
   }
 
   // 删除笔记
@@ -80,6 +94,30 @@ export function useNoteStore() {
       noteList.value[idx] = updated
     }
   }
+
+  // 移动笔记到文件夹
+  const moveNoteToFolder = async (noteId, folderId) => {
+    const idx = noteList.value.findIndex(n => n.id === noteId)
+    if (idx > -1) {
+      const updated = {
+        ...noteList.value[idx],
+        folderId,
+        updateTime: Date.now()
+      }
+      await noteTable.put(updated)
+      noteList.value[idx] = updated
+    }
+  }
+
+  // 获取文件夹内的笔记
+  const getNotesByFolder = (folderId) => {
+    return noteList.value.filter(n => n.folderId === folderId)
+  }
+
+  // 获取未分类的笔记
+  const getUnsortedNotes = computed(() => {
+    return noteList.value.filter(n => n.folderId === null)
+  })
 
   // 打开笔记，加入标签页
   const openNote = (id) => {
@@ -112,6 +150,9 @@ export function useNoteStore() {
     updateNote,
     openNote,
     closeTab,
-    saveAiConfig
+    saveAiConfig,
+    moveNoteToFolder,
+    getNotesByFolder,
+    getUnsortedNotes
   }
 }
