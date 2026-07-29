@@ -180,7 +180,15 @@ const closeMenu = () => {
 
 // 新建顶级文件夹
 const addTopFolder = async () => {
-  await addFolder(null, '新建文件夹')
+  const newName = await modalStore.prompt({
+    title: '新建文件夹',
+    defaultValue: '',
+    placeholder: '请输入文件夹名称'
+  })
+  
+  if (newName && newName.trim()) {
+    await addFolder(null, newName.trim())
+  }
 }
 
 // 重命名文件夹
@@ -202,8 +210,18 @@ const startRename = async () => {
 
 // 新建子文件夹
 const addSubFolder = async () => {
-  await addFolder(menuTargetId.value, '新建文件夹')
+  const parentId = menuTargetId.value
   closeMenu()
+  
+  const newName = await modalStore.prompt({
+    title: '新建子文件夹',
+    defaultValue: '',
+    placeholder: '请输入文件夹名称'
+  })
+  
+  if (newName && newName.trim()) {
+    await addFolder(parentId, newName.trim())
+  }
 }
 
 // 在文件夹内新建笔记
@@ -255,6 +273,7 @@ const moveToUnsorted = async () => {
 
 // 删除笔记
 const deleteNote = async () => {
+  const targetId = menuTargetId.value
   closeMenu()
   
   const confirmed = await modalStore.confirm({
@@ -265,7 +284,7 @@ const deleteNote = async () => {
   })
   
   if (confirmed) {
-    delNote(menuTargetId.value)
+    delNote(targetId)
   }
 }
 </script>

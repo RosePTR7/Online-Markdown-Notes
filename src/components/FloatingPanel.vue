@@ -15,7 +15,7 @@
       <button class="px-2 py-0.5 text-lg leading-none transition-colors duration-300" :class="isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'" @click="close" title="关闭">✕</button>
     </div>
     <!-- 内容区域 -->
-    <div class="px-4 py-3">
+    <div class="px-4 py-3 overflow-hidden">
       <slot></slot>
     </div>
   </div>

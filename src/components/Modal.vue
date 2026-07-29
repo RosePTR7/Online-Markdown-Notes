@@ -35,7 +35,7 @@
             v-if="modalState.type === 'prompt'"
             ref="inputRef"
             v-model="inputValue"
-            class="w-full px-3 py-2 border rounded-lg outline-none focus:border-indigo-400 text-sm transition-colors duration-300"
+            class="w-full box-border px-3 py-2 border rounded-lg outline-none focus:border-indigo-400 text-sm transition-colors duration-300"
             :class="isDark 
               ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500' 
               : 'bg-white border-slate-300 text-slate-800'"

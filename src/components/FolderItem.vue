@@ -23,13 +23,11 @@
     >
       <!-- 展开/折叠箭头 -->
       <button
-        class="w-4 h-4 flex items-center justify-center mr-1 transition-transform duration-200 shrink-0"
+        class="flex items-center justify-center mr-1 transition-transform duration-200 shrink-0 text-xs font-bold bg-transparent border-none outline-none p-0"
         :class="{ 'rotate-90': isExpanded }"
         @click.stop="toggleExpand"
       >
-        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M6 4l8 6-8 6V4z" />
-        </svg>
+        >
       </button>
       
       <!-- 文件夹图标 -->
@@ -44,7 +42,7 @@
       
       <!-- 操作按钮 -->
       <button
-        class="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 transition-colors duration-200"
+        class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 transition-colors duration-200 bg-transparent border-none outline-none p-0"
         :class="isDark ? 'hover:bg-slate-500 text-slate-400' : 'hover:bg-gray-300 text-gray-600'"
         @click.stop="handleContextMenu"
       >
@@ -92,7 +90,7 @@
         </span>
         <span class="flex-1 truncate text-sm">{{ note.title }}</span>
         <button
-          class="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 transition-colors duration-200"
+          class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 transition-colors duration-200 bg-transparent border-none outline-none p-0"
           :class="isDark ? 'hover:bg-slate-500 text-slate-400' : 'hover:bg-gray-300 text-gray-600'"
           @click.stop="openNoteMenu(note, $event)"
         >

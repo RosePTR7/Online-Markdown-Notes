@@ -245,7 +245,7 @@
         <input
           v-model="inputPanelValue"
           type="text"
-          class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+          class="w-full box-border px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
           :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
           :placeholder="inputPanelPlaceholder"
           @keyup.enter="confirmInputPanel"

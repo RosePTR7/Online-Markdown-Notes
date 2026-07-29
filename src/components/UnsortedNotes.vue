@@ -46,7 +46,7 @@
         </span>
         <span class="flex-1 truncate text-sm">{{ note.title }}</span>
         <button
-          class="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 transition-colors duration-200"
+          class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 transition-colors duration-200 bg-transparent border-none outline-none p-0"
           :class="isDark ? 'hover:bg-slate-500 text-slate-400' : 'hover:bg-gray-300 text-gray-600'"
           @click.stop="openNoteMenu(note, $event)"
         >
@@ -181,6 +181,7 @@ const renameNote = async () => {
 
 // 删除笔记
 const deleteNote = async () => {
+  const targetId = menuTargetId.value
   closeMenu()
   
   const confirmed = await modalStore.confirm({
@@ -191,7 +192,7 @@ const deleteNote = async () => {
   })
   
   if (confirmed) {
-    delNote(menuTargetId.value)
+    delNote(targetId)
   }
 }
 </script>
