@@ -20,7 +20,12 @@
     </div>
 
     <!-- 笔记列表 -->
-    <div class="px-1 py-1">
+    <div 
+      class="px-1 py-1 min-h-[60px]"
+      @dragover.prevent="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
       <div
         v-for="note in unsortedNotes"
         :key="note.id"
@@ -40,7 +45,7 @@
       >
         <!-- 笔记图标 -->
         <span class="mr-2 shrink-0">
-          <svg class="w-3.5 h-3.5" :class="isDark ? 'text-slate-400' : 'text-slate-500'" fill="currentColor" viewBox="0 0 20 20">
+          <svg class="w-3.5 h-3.5" :class="isDark ? 'text-slate-50' : 'text-slate-500'" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
           </svg>
         </span>
@@ -116,8 +121,11 @@ const folderStore = useFolderStore()
 const noteStore = useNoteStore()
 const modalStore = useModalStore()
 
-const { activeId, openNote, updateNote, delNote, getUnsortedNotes } = noteStore
+const { activeId, openNote, updateNote, delNote, moveNoteToFolder, getUnsortedNotes } = noteStore
 const { dragState, setDragState, clearDragState } = folderStore
+
+// 拖拽状态
+const isDragOver = ref(false)
 
 // 未分类笔记
 const unsortedNotes = computed(() => {
@@ -144,6 +152,44 @@ const handleDragStart = (note, e) => {
 // 拖拽结束
 const handleDragEnd = () => {
   clearDragState()
+  isDragOver.value = false
+}
+
+// 拖拽经过未分类区域
+const handleDragOver = (e) => {
+  e.preventDefault()
+  const dragItem = dragState.value.dragItem
+  if (!dragItem) return
+  isDragOver.value = true
+  e.dataTransfer.dropEffect = 'move'
+}
+
+// 拖拽离开未分类区域
+const handleDragLeave = (e) => {
+  // 检查是否真的离开了容器
+  const rect = e.currentTarget.getBoundingClientRect()
+  const x = e.clientX
+  const y = e.clientY
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    isDragOver.value = false
+  }
+}
+
+// 放置到未分类区域
+const handleDrop = async (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  
+  const dragItem = dragState.value.dragItem
+  if (!dragItem) return
+  
+  if (dragItem.type === 'note') {
+    // 移动笔记到未分类（folderId = null）
+    await moveNoteToFolder(dragItem.id, null)
+  }
+  
+  clearDragState()
+  isDragOver.value = false
 }
 
 // 打开笔记菜单

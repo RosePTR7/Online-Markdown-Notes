@@ -14,6 +14,15 @@ const modalState = ref({
   resolve: null
 })
 
+// Toast 状态
+const toastState = ref({
+  visible: false,
+  message: '',
+  type: 'info' // 'info' | 'success' | 'warning' | 'error'
+})
+
+let toastTimer = null
+
 export function useModalStore() {
   // 显示确认框
   const confirm = (options) => {
@@ -83,12 +92,29 @@ export function useModalStore() {
     modalState.value.visible = false
   }
 
+  // 显示 Toast 提示
+  const showToast = (message, type = 'info') => {
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+    }
+    toastState.value = {
+      visible: true,
+      message,
+      type
+    }
+    toastTimer = setTimeout(() => {
+      toastState.value.visible = false
+    }, 3000)
+  }
+
   return {
     modalState,
+    toastState,
     confirm,
     prompt,
     closeModal,
     confirmModal,
-    cancelModal
+    cancelModal,
+    showToast
   }
 }

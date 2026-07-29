@@ -95,14 +95,13 @@ export function useNoteStore() {
     }
   }
 
-  // 移动笔记到文件夹
+  // 移动笔记到文件夹（不更新 updateTime，因为移动不算修改笔记内容）
   const moveNoteToFolder = async (noteId, folderId) => {
     const idx = noteList.value.findIndex(n => n.id === noteId)
     if (idx > -1) {
       const updated = {
         ...noteList.value[idx],
-        folderId,
-        updateTime: Date.now()
+        folderId
       }
       await noteTable.put(updated)
       noteList.value[idx] = updated

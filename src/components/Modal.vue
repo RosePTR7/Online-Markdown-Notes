@@ -1,5 +1,14 @@
 <template>
   <Teleport to="body">
+    <!-- Toast 提示 -->
+    <div
+      v-if="toastState.visible"
+      class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] px-4 py-2 rounded-lg shadow-lg text-sm transition-all duration-300"
+      :class="toastClass"
+    >
+      {{ toastState.message }}
+    </div>
+
     <div
       v-if="modalState.visible"
       class="fixed inset-0 z-[200] flex items-center justify-center"
@@ -72,11 +81,20 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, inject } from 'vue'
+import { ref, computed, watch, nextTick, inject } from 'vue'
 import { useModalStore } from '../stores/useModalStore'
 
 const isDark = inject('isDark', ref(false))
-const { modalState, confirmModal, cancelModal } = useModalStore()
+const { modalState, toastState, confirmModal, cancelModal } = useModalStore()
+
+// Toast 样式
+const toastClass = computed(() => {
+  const type = toastState.value.type
+  if (type === 'success') return 'bg-green-500 text-white'
+  if (type === 'error') return 'bg-red-500 text-white'
+  if (type === 'warning') return 'bg-yellow-500 text-white'
+  return 'bg-slate-700 text-white'
+})
 
 const inputValue = ref('')
 const inputRef = ref(null)

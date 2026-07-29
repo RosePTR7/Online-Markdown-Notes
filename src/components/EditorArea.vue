@@ -4,8 +4,44 @@
     <div v-if="currentNote" class="flex flex-col shrink-0 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-slate-50'">
       <!-- 按钮栏 - 最上面 -->
       <div class="flex items-center px-3 py-2 gap-3">
-        <!-- 编辑/查看按钮组 - 圆角矩形包裹 -->
+        <!-- 文件/编辑/查看/AI配置 按钮组 - 圆角矩形包裹 -->
         <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-100'">
+          <!-- 文件按钮 -->
+          <div class="relative" ref="fileMenuRef">
+            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('file')">文件</button>
+          <!-- 文件下拉菜单 -->
+          <div v-if="activePanel === 'file'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+            <div ref="importMenuItemRef" class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300 relative" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', showSubMenu === 'import' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click.stop="toggleSubMenu('import')">
+              导入
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
+            </div>
+            <div ref="exportMenuItemRef" class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300 relative" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', showSubMenu === 'export' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click.stop="toggleSubMenu('export')">
+              导出
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
+            </div>
+          </div>
+          <!-- 导入子菜单 -->
+          <div v-if="showSubMenu === 'import'" class="fixed z-[60]" :style="{ left: subMenuPosition.x + 'px', top: subMenuPosition.y + 'px' }" @click.stop>
+              <div class="border rounded-xl shadow-lg py-1 w-56 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('md')">导入 Markdown (.md)</div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('fm-md')">导入带 Frontmatter 的 MD</div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('txt')">导入文本文件 (.txt)</div>
+                <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('json')">导入 JSON 备份</div>
+              </div>
+            </div>
+          <!-- 导出子菜单 -->
+          <div v-if="showSubMenu === 'export'" class="fixed z-[60]" :style="{ left: subMenuPosition.x + 'px', top: subMenuPosition.y + 'px' }" @click.stop>
+              <div class="border rounded-xl shadow-lg py-1 w-56 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('md')">导出当前笔记为 MD</div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('fm-md')">导出为带 Frontmatter 的 MD</div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('html')">导出当前笔记为 HTML</div>
+                <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
+                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportAllJSON">导出全部数据为 JSON</div>
+              </div>
+            </div>
+          </div>
+          <!-- 编辑按钮 -->
           <div class="relative" ref="editMenuRef">
             <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('edit')">编辑</button>
             <!-- 编辑下拉菜单 -->
@@ -16,6 +52,7 @@
               <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="openFindReplacePanel()">查找和替换</div>
             </div>
           </div>
+          <!-- 查看按钮 -->
           <div class="relative" ref="viewMenuRef">
             <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view')">查看</button>
             <!-- 查看下拉菜单 -->
@@ -26,10 +63,9 @@
               <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'system' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('system')">💻 跟随系统</div>
             </div>
           </div>
+          <!-- AI配置按钮 -->
+          <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="showSetting=true">AI配置</button>
         </div>
-        
-        <!-- AI配置按钮 -->
-        <button class="px-4 py-1.5 rounded-xl text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'" @click="showSetting=true">AI配置</button>
         <div class="flex-1"></div>
         
         <!-- 保存状态区域 -->
@@ -272,10 +308,24 @@
 <script setup>
 import { ref, nextTick, computed, onBeforeUnmount, inject } from 'vue'
 import { useNoteStore } from '../stores/useNoteStore'
+import { useModalStore } from '../stores/useModalStore'
 import MdEditor from './MdEditor.vue'
 import FloatingPanel from './FloatingPanel.vue'
 import { polishMarkdown } from '../utils/aiApi'
 import draggable from 'vuedraggable'
+import { 
+  exportNoteAsMarkdown, 
+  exportNoteAsFrontmatterMarkdown, 
+  exportNoteAsHTML, 
+  exportAllAsJSON, 
+  downloadFile,
+  importMarkdown,
+  importFrontmatterMarkdown,
+  importTxt,
+  importJSON
+} from '../utils/importExport'
+import { noteTable, folderTable } from '../utils/db'
+import { nanoid } from 'nanoid'
 
 const props = defineProps({
   modelValue: {
@@ -307,20 +357,57 @@ const getVditor = () => mdEditor.value?.getVditor?.()
 const doUndo = () => emit('undo')
 const doRedo = () => emit('redo')
 
-// ==========编辑/查看面板==========
-const activePanel = ref(null) // 'edit' | 'view' | null
+// ==========编辑/查看/文件面板==========
+const activePanel = ref(null) // 'edit' | 'view' | 'file' | null
 const editMenuRef = ref(null)
 const viewMenuRef = ref(null)
+const fileMenuRef = ref(null)
+const importMenuItemRef = ref(null)
+const exportMenuItemRef = ref(null)
+const showSubMenu = ref(null) // 'import' | 'export' | null
+const subMenuPosition = ref({ x: 0, y: 0 })
+const fileInputRef = ref(null)
+const importAccept = ref('')
+let importType = ''
 
 const togglePanel = (panel) => {
-  activePanel.value = activePanel.value === panel ? null : panel
+  if (activePanel.value === panel) {
+    activePanel.value = null
+    showSubMenu.value = null
+  } else {
+    activePanel.value = panel
+    showSubMenu.value = null
+  }
+}
+
+// 切换子菜单（导入/导出）
+const toggleSubMenu = (type) => {
+  if (showSubMenu.value === type) {
+    showSubMenu.value = null
+  } else {
+    showSubMenu.value = type
+    // 计算子菜单位置（在对应项的右侧）
+    const menuItemRef = type === 'import' ? importMenuItemRef : exportMenuItemRef
+    if (menuItemRef.value) {
+      const rect = menuItemRef.value.getBoundingClientRect()
+      subMenuPosition.value = { x: rect.right + 4, y: rect.top }
+    }
+  }
 }
 
 // 点击外部关闭菜单
 const closePanelOnClickOutside = (e) => {
+  // 检查是否点击在子菜单外部
+  const isOutsideSubMenu = !e.target.closest('.fixed.z-\\[60\\]')
+  if (isOutsideSubMenu) {
+    showSubMenu.value = null
+  }
+  
   if (activePanel.value === 'edit' && editMenuRef.value && !editMenuRef.value.contains(e.target)) {
     activePanel.value = null
   } else if (activePanel.value === 'view' && viewMenuRef.value && !viewMenuRef.value.contains(e.target)) {
+    activePanel.value = null
+  } else if (activePanel.value === 'file' && fileMenuRef.value && !fileMenuRef.value.contains(e.target) && isOutsideSubMenu) {
     activePanel.value = null
   }
 }
@@ -682,5 +769,168 @@ const applyPolish = () => {
   updateNote(currentNote.value.id, { content: result })
   // 关闭悬浮窗
   discardPolish()
+}
+
+// ==========导入导出功能==========
+const modalStore = useModalStore()
+
+// 触发导入文件选择
+const triggerImport = (type) => {
+  importType = type
+  showSubMenu.value = null
+  activePanel.value = null
+  switch (type) {
+    case 'md':
+    case 'fm-md':
+      importAccept.value = '.md'
+      break
+    case 'txt':
+      importAccept.value = '.txt'
+      break
+    case 'json':
+      importAccept.value = '.json'
+      break
+  }
+  // 创建文件输入框
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = importAccept.value
+  input.onchange = handleFileSelect
+  input.click()
+}
+
+// 处理文件选择
+const handleFileSelect = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  
+  try {
+    if (importType === 'json') {
+      // 导入 JSON 备份
+      const data = await importJSON(file)
+      await handleJSONImport(data)
+    } else {
+      // 导入单个文件
+      let noteData
+      switch (importType) {
+        case 'md':
+          noteData = await importMarkdown(file)
+          break
+        case 'fm-md':
+          noteData = await importFrontmatterMarkdown(file)
+          break
+        case 'txt':
+          noteData = await importTxt(file)
+          break
+      }
+      if (noteData) {
+        await addNoteFromImport(noteData)
+      }
+    }
+    modalStore.showToast('导入成功', 'success')
+  } catch (err) {
+    console.error('Import error:', err)
+    modalStore.showToast('导入失败: ' + err.message, 'error')
+  }
+}
+
+// 从导入数据添加笔记
+const addNoteFromImport = async (data) => {
+  const newNote = {
+    id: nanoid(),
+    title: data.title || '导入的笔记',
+    content: data.content || '',
+    folderId: data.folderId || null,
+    createTime: data.createTime || Date.now(),
+    updateTime: data.updateTime || Date.now()
+  }
+  await noteTable.add(newNote)
+  noteList.value.push(newNote)
+  openNote(newNote.id)
+}
+
+// 处理 JSON 备份导入
+const handleJSONImport = async (data) => {
+  const confirmed = await modalStore.confirm({
+    title: '导入备份',
+    message: `确定要导入 ${data.notes?.length || 0} 条笔记和 ${data.folders?.length || 0} 个文件夹吗？`,
+    confirmText: '导入',
+    confirmDanger: false
+  })
+  
+  if (!confirmed) return
+  
+  // 导入文件夹
+  if (data.folders && Array.isArray(data.folders)) {
+    for (const folder of data.folders) {
+      const existing = await folderTable.get(folder.id)
+      if (!existing) {
+        await folderTable.add(folder)
+      }
+    }
+    // 重新加载文件夹
+    window.location.reload()
+  }
+  
+  // 导入笔记
+  if (data.notes && Array.isArray(data.notes)) {
+    for (const note of data.notes) {
+      const existing = await noteTable.get(note.id)
+      if (!existing) {
+        await noteTable.add(note)
+        noteList.value.push(note)
+      }
+    }
+  }
+}
+
+// 导出当前笔记
+const exportCurrentNote = (type) => {
+  showSubMenu.value = null
+  activePanel.value = null
+  const note = currentNote.value
+  if (!note) {
+    modalStore.showToast('请先选择一条笔记', 'warning')
+    return
+  }
+  
+  let content, filename, mimeType
+  const safeTitle = note.title.replace(/[\\/:*?"<>|]/g, '_')
+  
+  switch (type) {
+    case 'md':
+      content = exportNoteAsMarkdown(note)
+      filename = `${safeTitle}.md`
+      mimeType = 'text/markdown;charset=utf-8'
+      break
+    case 'fm-md':
+      content = exportNoteAsFrontmatterMarkdown(note)
+      filename = `${safeTitle}.md`
+      mimeType = 'text/markdown;charset=utf-8'
+      break
+    case 'html':
+      content = exportNoteAsHTML(note)
+      filename = `${safeTitle}.html`
+      mimeType = 'text/html;charset=utf-8'
+      break
+  }
+  
+  if (content) {
+    downloadFile(content, filename, mimeType)
+  }
+}
+
+// 导出全部数据为 JSON
+const exportAllJSON = async () => {
+  showSubMenu.value = null
+  activePanel.value = null
+  try {
+    const content = await exportAllAsJSON()
+    const date = new Date().toISOString().slice(0, 10)
+    downloadFile(content, `notes-backup-${date}.json`, 'application/json')
+  } catch (err) {
+    console.error('Export error:', err)
+    modalStore.showToast('导出失败: ' + err.message, 'error')
+  }
 }
 </script>

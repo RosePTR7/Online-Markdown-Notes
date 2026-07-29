@@ -17,7 +17,7 @@
           type="text"
           placeholder="搜索笔记..."
           class="w-full px-3 py-1.5 border rounded-xl outline-none focus:border-indigo-400 text-sm box-border transition-colors duration-300"
-          :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
+          :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-50 placeholder-slate-50' : 'border-slate-300 bg-white'"
         />
       </div>
 

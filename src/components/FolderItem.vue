@@ -32,7 +32,7 @@
       
       <!-- 文件夹图标 -->
       <span class="mr-2 shrink-0">
-        <svg class="w-4 h-4" :class="isDark ? 'text-indigo-400' : 'text-indigo-500'" fill="currentColor" viewBox="0 0 20 20">
+        <svg class="w-4 h-4" :class="isDark ? 'text-amber-400' : 'text-amber-400'" fill="currentColor" viewBox="0 0 20 20">
           <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
         </svg>
       </span>

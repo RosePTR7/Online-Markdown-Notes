@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "dexie": "^4.4.4",
+    "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.6",
     "nanoid": "^6.0.0",
