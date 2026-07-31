@@ -3,18 +3,7 @@
     笔记加载中...
   </div>
   <div v-else class="h-screen flex overflow-hidden transition-colors duration-300" :class="isDark ? 'bg-slate-900' : 'bg-slate-50'">
-    <!-- 左侧：标题 + 侧边栏 -->
-    <div class="flex flex-col shrink-0 overflow-hidden transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'" :style="{ width: sidebarWidth + 'px' }">
-      <!-- 标题 -->
-      <div class="px-4 py-3 border-b transition-colors duration-300" :class="isDark ? 'border-slate-700' : 'border-slate-200'">
-        <span class="font-bold text-xl transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">在线Markdown笔记</span>
-      </div>
-      <!-- 分隔线 -->
-      <div class="h-px transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-200'"></div>
-      <!-- 侧边栏 -->
-      <Sidebar />
-    </div>
-
+    <Sidebar :style="{ width: sidebarWidth + 'px' }" />
     <!-- 分界线（可拖拽） -->
     <div
       class="w-0.5 shrink-0 cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 transition-colors"

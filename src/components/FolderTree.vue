@@ -1,21 +1,5 @@
 <template>
   <div class="folder-tree">
-    <!-- 新建文件夹按钮 -->
-    <div class="px-2 py-1">
-      <button
-        class="w-full py-1.5 text-sm rounded-lg border border-dashed flex items-center justify-center gap-1 transition-colors duration-200"
-        :class="isDark 
-          ? 'border-slate-600 text-slate-400 hover:border-indigo-500 hover:text-indigo-400 hover:bg-slate-700/50' 
-          : 'border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/50'"
-        @click="addTopFolder"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
-        新建文件夹
-      </button>
-    </div>
-
     <!-- 文件夹列表 -->
     <div class="px-1 pb-1">
       <FolderItem
@@ -176,19 +160,6 @@ const closeMenu = () => {
   menuVisible.value = false
   menuType.value = ''
   menuTargetId.value = ''
-}
-
-// 新建顶级文件夹
-const addTopFolder = async () => {
-  const newName = await modalStore.prompt({
-    title: '新建文件夹',
-    defaultValue: '',
-    placeholder: '请输入文件夹名称'
-  })
-  
-  if (newName && newName.trim()) {
-    await addFolder(null, newName.trim())
-  }
 }
 
 // 重命名文件夹

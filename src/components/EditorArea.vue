@@ -5,31 +5,20 @@
       <!-- 按钮栏 - 最上面 -->
       <div class="flex items-center px-3 py-2 gap-3">
         <!-- 文件/编辑/查看/AI配置 按钮组 - 圆角矩形包裹 -->
-        <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-100'">
+        <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-50'">
           <!-- 文件按钮 -->
           <div class="relative" ref="fileMenuRef">
             <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('file')">文件</button>
           <!-- 文件下拉菜单 -->
           <div v-if="activePanel === 'file'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-            <div ref="importMenuItemRef" class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300 relative" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', showSubMenu === 'import' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click.stop="toggleSubMenu('import')">
+            <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click.stop="doImport">
               导入
-              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
             </div>
             <div ref="exportMenuItemRef" class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300 relative" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', showSubMenu === 'export' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click.stop="toggleSubMenu('export')">
               导出
               <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
             </div>
           </div>
-          <!-- 导入子菜单 -->
-          <div v-if="showSubMenu === 'import'" class="fixed z-[60]" :style="{ left: subMenuPosition.x + 'px', top: subMenuPosition.y + 'px' }" @click.stop>
-              <div class="border rounded-xl shadow-lg py-1 w-56 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('md')">导入 Markdown (.md)</div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('fm-md')">导入带 Frontmatter 的 MD</div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('txt')">导入文本文件 (.txt)</div>
-                <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="triggerImport('json')">导入 JSON 备份</div>
-              </div>
-            </div>
           <!-- 导出子菜单 -->
           <div v-if="showSubMenu === 'export'" class="fixed z-[60]" :style="{ left: subMenuPosition.x + 'px', top: subMenuPosition.y + 'px' }" @click.stop>
               <div class="border rounded-xl shadow-lg py-1 w-56 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
@@ -362,13 +351,9 @@ const activePanel = ref(null) // 'edit' | 'view' | 'file' | null
 const editMenuRef = ref(null)
 const viewMenuRef = ref(null)
 const fileMenuRef = ref(null)
-const importMenuItemRef = ref(null)
 const exportMenuItemRef = ref(null)
-const showSubMenu = ref(null) // 'import' | 'export' | null
+const showSubMenu = ref(null) // 'export' | null
 const subMenuPosition = ref({ x: 0, y: 0 })
-const fileInputRef = ref(null)
-const importAccept = ref('')
-let importType = ''
 
 const togglePanel = (panel) => {
   if (activePanel.value === panel) {
@@ -380,18 +365,57 @@ const togglePanel = (panel) => {
   }
 }
 
-// 切换子菜单（导入/导出）
+// 切换子菜单（导出）
 const toggleSubMenu = (type) => {
   if (showSubMenu.value === type) {
     showSubMenu.value = null
   } else {
     showSubMenu.value = type
     // 计算子菜单位置（在对应项的右侧）
-    const menuItemRef = type === 'import' ? importMenuItemRef : exportMenuItemRef
+    const menuItemRef = exportMenuItemRef
     if (menuItemRef.value) {
       const rect = menuItemRef.value.getBoundingClientRect()
       subMenuPosition.value = { x: rect.right + 4, y: rect.top }
     }
+  }
+}
+
+// ==========导入功能==========
+// 直接弹出文件选择器，支持多种格式
+const doImport = () => {
+  showSubMenu.value = null
+  activePanel.value = null
+  const input = document.createElement('input')
+  input.type = 'file'
+  // 支持所有可导入的文件类型
+  input.accept = '.md,.markdown,.txt,.json'
+  input.multiple = false
+  input.onchange = handleFileSelectAuto
+  input.click()
+}
+
+// 根据文件扩展名自动判断导入类型并处理
+const handleFileSelectAuto = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext === 'json') {
+      const data = await importJSON(file)
+      await handleJSONImport(data)
+    } else if (ext === 'txt') {
+      const noteData = await importTxt(file)
+      await addNoteFromImport(noteData)
+    } else {
+      // .md / .markdown -> 尝试解析 frontmatter，失败则用纯 markdown
+      const noteData = await importFrontmatterMarkdown(file)
+      await addNoteFromImport(noteData)
+    }
+    modalStore.showToast('导入成功', 'success')
+  } catch (err) {
+    console.error('Import error:', err)
+    modalStore.showToast('导入失败: ' + err.message, 'error')
   }
 }
 
@@ -773,66 +797,6 @@ const applyPolish = () => {
 
 // ==========导入导出功能==========
 const modalStore = useModalStore()
-
-// 触发导入文件选择
-const triggerImport = (type) => {
-  importType = type
-  showSubMenu.value = null
-  activePanel.value = null
-  switch (type) {
-    case 'md':
-    case 'fm-md':
-      importAccept.value = '.md'
-      break
-    case 'txt':
-      importAccept.value = '.txt'
-      break
-    case 'json':
-      importAccept.value = '.json'
-      break
-  }
-  // 创建文件输入框
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = importAccept.value
-  input.onchange = handleFileSelect
-  input.click()
-}
-
-// 处理文件选择
-const handleFileSelect = async (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  
-  try {
-    if (importType === 'json') {
-      // 导入 JSON 备份
-      const data = await importJSON(file)
-      await handleJSONImport(data)
-    } else {
-      // 导入单个文件
-      let noteData
-      switch (importType) {
-        case 'md':
-          noteData = await importMarkdown(file)
-          break
-        case 'fm-md':
-          noteData = await importFrontmatterMarkdown(file)
-          break
-        case 'txt':
-          noteData = await importTxt(file)
-          break
-      }
-      if (noteData) {
-        await addNoteFromImport(noteData)
-      }
-    }
-    modalStore.showToast('导入成功', 'success')
-  } catch (err) {
-    console.error('Import error:', err)
-    modalStore.showToast('导入失败: ' + err.message, 'error')
-  }
-}
 
 // 从导入数据添加笔记
 const addNoteFromImport = async (data) => {
