@@ -29,7 +29,7 @@ onMounted(async () => {
       theme: isDark.value ? 'dark' : 'classic',
       value: props.modelValue ?? '',
       cache: {
-        id: "note-editor"
+        enable: false // 关闭 Vditor 本地缓存，避免每次输入写 localStorage 的开销
       },
       input: (val) => {
         emit('update:modelValue', val)

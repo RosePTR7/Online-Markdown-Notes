@@ -144,7 +144,7 @@ const isExpanded = computed(() => isFolderExpanded(props.folder.id))
 const childFolders = computed(() => getChildFolders(props.folder.id))
 const folderNotes = computed(() => {
   return noteStore.noteList.value
-    .filter(n => n.folderId === props.folder.id)
+    .filter(n => n.folderId === props.folder.id && !n.isLocal)
     .sort((a, b) => b.updateTime - a.updateTime)
 })
 

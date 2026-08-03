@@ -47,7 +47,7 @@
       <LocalFolderItem
         v-for="childFolder in childFolders"
         :key="'local-folder-' + childFolder.name"
-        :folder="childFolder"
+        :folder="{ ...childFolder, path: folderPath + '/' + childFolder.name }"
         :depth="depth + 1"
         :contents="childFolder.contents || []"
         :local-notes="localNotes"
@@ -140,6 +140,9 @@ const isDark = inject('isDark', ref(false))
 // 展开状态
 const isExpanded = ref(false)
 
+// 当前文件夹的完整相对路径（根层没有 path 时用 name）
+const folderPath = computed(() => props.folder.path || props.folder.name)
+
 // 子文件夹（从 contents 或 folder.children 获取，支持懒加载缓存）
 const childFolders = computed(() => {
   const items = props.contents.length > 0 ? props.contents : (props.folder.contents || [])
@@ -180,7 +183,7 @@ const getNoteTitle = (filename) => {
 
 // 打开本地笔记
 const openLocalNote = async (file) => {
-  emit('open-note', file)
+  emit('open-note', { name: file.name, dirPath: folderPath.value })
 }
 
 // 展开/折叠
@@ -200,6 +203,6 @@ const handleContextMenu = (e) => {
 const openFileMenu = (file, e) => {
   e.stopPropagation()
   e.preventDefault()
-  emit('contextmenu', { type: 'file', target: file, x: e.clientX, y: e.clientY })
+  emit('contextmenu', { type: 'file', target: { ...file, dirPath: folderPath.value }, x: e.clientX, y: e.clientY })
 }
 </script>

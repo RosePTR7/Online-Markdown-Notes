@@ -127,9 +127,9 @@ const { dragState, setDragState, clearDragState } = folderStore
 // 拖拽状态
 const isDragOver = ref(false)
 
-// 未分类笔记
+// 未分类笔记（双保险：排除本地笔记）
 const unsortedNotes = computed(() => {
-  return getUnsortedNotes.value.sort((a, b) => b.updateTime - a.updateTime)
+  return getUnsortedNotes.value.filter(n => !n.isLocal).sort((a, b) => b.updateTime - a.updateTime)
 })
 
 // 菜单状态
