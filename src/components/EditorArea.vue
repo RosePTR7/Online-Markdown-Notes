@@ -7,51 +7,42 @@
         <!-- 文件/编辑/查看/AI配置 按钮组 - 圆角矩形包裹 -->
         <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-50'">
           <!-- 文件按钮 -->
-          <div class="relative" ref="fileMenuRef">
-            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('file')">文件</button>
-          <!-- 文件下拉菜单 -->
-          <div v-if="activePanel === 'file'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-            <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click.stop="doImport">
-              导入
-            </div>
-            <div ref="exportMenuItemRef" class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300 relative" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', showSubMenu === 'export' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click.stop="toggleSubMenu('export')">
-              导出
-              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
-            </div>
-          </div>
-          <!-- 导出子菜单 -->
-          <div v-if="showSubMenu === 'export'" class="fixed z-[60]" :style="{ left: subMenuPosition.x + 'px', top: subMenuPosition.y + 'px' }" @click.stop>
-              <div class="border rounded-xl shadow-lg py-1 w-56 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('md')">导出当前笔记为 MD</div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('fm-md')">导出为带 Frontmatter 的 MD</div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportCurrentNote('html')">导出当前笔记为 HTML</div>
-                <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
-                <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="exportAllJSON">导出全部数据为 JSON</div>
-              </div>
-            </div>
-          </div>
+          <button ref="fileMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('file', fileMenuRef)">文件</button>
+
+          <!-- 顶栏下拉菜单 & 导出子菜单 - 统一复用 ContextMenu -->
+          <ContextMenu :visible="activePanel !== null" :x="dropdownX" :y="dropdownY" @close="activePanel = null">
+            <template v-if="activePanel === 'file'">
+              <MenuItem label="导入" @click="doImport" />
+              <MenuItem ref="exportMenuItemRef" :active="showSubMenu === 'export'" stop-propagation @click="toggleSubMenu('export')">
+                导出
+                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
+              </MenuItem>
+            </template>
+            <template v-if="activePanel === 'edit'">
+              <MenuItem label="撤销" @click="doUndo()" />
+              <MenuItem label="恢复" @click="doRedo()" />
+              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
+              <MenuItem label="查找和替换" @click="openFindReplacePanel()" />
+            </template>
+            <template v-if="activePanel === 'view'">
+              <MenuItem :active="themeMode === 'light'" label="☀️ 亮色" @click="setTheme('light')" />
+              <MenuItem :active="themeMode === 'dark'" label="🌙 暗色" @click="setTheme('dark')" />
+              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
+              <MenuItem :active="themeMode === 'system'" label="💻 跟随系统" @click="setTheme('system')" />
+            </template>
+          </ContextMenu>
+
+          <ContextMenu :visible="showSubMenu === 'export'" :x="subMenuPosition.x" :y="subMenuPosition.y" @close="showSubMenu = null; activePanel = null">
+            <MenuItem label="导出当前笔记为 MD" @click="exportCurrentNote('md')" />
+            <MenuItem label="导出为带 Frontmatter 的 MD" @click="exportCurrentNote('fm-md')" />
+            <MenuItem label="导出当前笔记为 HTML" @click="exportCurrentNote('html')" />
+            <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
+            <MenuItem label="导出全部数据为 JSON" @click="exportAllJSON" />
+          </ContextMenu>
           <!-- 编辑按钮 -->
-          <div class="relative" ref="editMenuRef">
-            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('edit')">编辑</button>
-            <!-- 编辑下拉菜单 -->
-            <div v-if="activePanel === 'edit'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="doUndo()">撤销</div>
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="doRedo()">恢复</div>
-              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700'" @click="openFindReplacePanel()">查找和替换</div>
-            </div>
-          </div>
+          <button ref="editMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('edit', editMenuRef)">编辑</button>
           <!-- 查看按钮 -->
-          <div class="relative" ref="viewMenuRef">
-            <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view')">查看</button>
-            <!-- 查看下拉菜单 -->
-            <div v-if="activePanel === 'view'" class="absolute left-0 top-full mt-1 border rounded-xl shadow-lg py-1 z-50 w-40 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'">
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'light' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('light')">☀️ 亮色</div>
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'dark' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('dark')">🌙 暗色</div>
-              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
-              <div class="px-4 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="[isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-slate-100 text-slate-700', themeMode === 'system' ? (isDark ? 'bg-slate-600' : 'bg-slate-100') : '']" @click="setTheme('system')">💻 跟随系统</div>
-            </div>
-          </div>
+          <button ref="viewMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view', viewMenuRef)">查看</button>
           <!-- AI配置按钮 -->
           <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="showSetting=true">AI配置</button>
         </div>
@@ -60,16 +51,7 @@
         <!-- 保存状态区域 -->
         <div class="flex items-center gap-2 shrink-0">
           <!-- 加载转圈动画 - 未保存时显示 -->
-          <svg 
-            v-if="isUnsaved" 
-            class="animate-spin h-4 w-4 text-indigo-500" 
-            xmlns="http://www.w3.org/2000/svg" 
-            fill="none" 
-            viewBox="0 0 24 24"
-          >
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <Icon name="spinner" class="animate-spin h-4 w-4 text-indigo-500" v-if="isUnsaved" />
           <!-- 保存状态 - 圆角矩形色块 -->
           <div 
             class="px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-300"
@@ -111,23 +93,12 @@
       </div>
     </div>
 
-    <!-- 标签右键菜单 独立遮罩关闭 -->
-    <div
-      v-if="tabMenuVisible"
-      class="fixed inset-0 z-40"
-      @click="tabMenuVisible = false"
-    >
-      <div
-        class="fixed shadow-lg border rounded-xl py-1 z-50 w-32 transition-colors duration-300"
-        :class="isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'"
-        :style="{ left: tabMenuX + 'px', top: tabMenuY + 'px' }"
-        @click.stop
-      >
-        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-gray-100 text-slate-700'" @click="tabRename">重命名</div>
-        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-slate-600 text-slate-200' : 'hover:bg-gray-100 text-slate-700'" @click="closeOtherTabs">删除其他</div>
-        <div class="px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-300" :class="isDark ? 'hover:bg-red-900/50 text-red-400' : 'hover:bg-red-50 text-red-500'" @click="closeAllTabs">删除所有</div>
-      </div>
-    </div>
+    <!-- 标签右键菜单 - 复用通用 ContextMenu 组件 -->
+    <ContextMenu :visible="tabMenuVisible" :x="tabMenuX" :y="tabMenuY" @close="tabMenuVisible = false">
+      <MenuItem label="重命名" @click="tabRename" />
+      <MenuItem label="删除其他" @click="closeOtherTabs" />
+      <MenuItem danger label="删除所有" @click="closeAllTabs" />
+    </ContextMenu>
 
     <!-- 查找/替换悬浮窗口 - 使用通用悬浮窗组件 -->
     <FloatingPanel
@@ -180,15 +151,7 @@
     >
       <div class="flex flex-col items-center gap-3 py-4">
         <!-- 加载动画 -->
-        <svg 
-          class="animate-spin h-8 w-8 text-indigo-500" 
-          xmlns="http://www.w3.org/2000/svg" 
-          fill="none" 
-          viewBox="0 0 24 24"
-        >
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <Icon name="spinner" class="animate-spin h-8 w-8 text-indigo-500" />
         <p class="text-sm transition-colors duration-300" :class="isDark ? 'text-slate-200' : 'text-slate-700'">AI润色中...</p>
       </div>
     </FloatingPanel>
@@ -221,20 +184,24 @@
       </div>
     </FloatingPanel>
 
-    <!-- AI配置弹窗 -->
-    <div v-if="showSetting" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="p-5 rounded-xl w-96 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
-        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">AI接口配置</h3>
-        <div class="mb-2">
-          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
+    <!-- AI配置悬浮窗 - 复用通用悬浮窗组件 -->
+    <FloatingPanel
+      :visible="showSetting"
+      title="AI接口配置"
+      panel-class="w-96"
+      @close="showSetting = false"
+    >
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
           <input v-model="aiConfig.baseUrl" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
-        <div class="mb-2">
-          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
+        <div>
+          <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
           <input v-model="aiConfig.apiKey" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
-        <div class="mb-3">
-          <label class="transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">AI模型</label>
+        <div>
+          <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">AI模型</label>
           <input v-model="aiConfig.model" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'" placeholder="例如: qwen3.7-plus"/>
         </div>
         <div class="flex justify-end gap-2">
@@ -242,7 +209,7 @@
           <button class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg" @click="saveAiConfig()">保存</button>
         </div>
       </div>
-    </div>
+    </FloatingPanel>
 
     <!-- 消息提示悬浮窗 -->
     <FloatingPanel
@@ -295,11 +262,14 @@
 </template>
 
 <script setup>
-import { ref, nextTick, computed, onBeforeUnmount, inject } from 'vue'
+import { ref, nextTick, computed, inject } from 'vue'
 import { useNoteStore } from '../stores/useNoteStore'
 import { useModalStore } from '../stores/useModalStore'
 import MdEditor from './MdEditor.vue'
 import FloatingPanel from './FloatingPanel.vue'
+import ContextMenu from './ContextMenu.vue'
+import MenuItem from './MenuItem.vue'
+import Icon from './Icon.vue'
 import { polishMarkdown } from '../utils/aiApi'
 import draggable from 'vuedraggable'
 import { 
@@ -354,12 +324,20 @@ const fileMenuRef = ref(null)
 const exportMenuItemRef = ref(null)
 const showSubMenu = ref(null) // 'export' | null
 const subMenuPosition = ref({ x: 0, y: 0 })
+const dropdownX = ref(0)
+const dropdownY = ref(0)
 
-const togglePanel = (panel) => {
+const togglePanel = (panel, btnRef) => {
   if (activePanel.value === panel) {
     activePanel.value = null
     showSubMenu.value = null
   } else {
+    // 根据触发按钮位置计算下拉菜单位置
+    if (btnRef && btnRef.value) {
+      const rect = btnRef.value.getBoundingClientRect()
+      dropdownX.value = rect.left
+      dropdownY.value = rect.bottom + 4
+    }
     activePanel.value = panel
     showSubMenu.value = null
   }
@@ -419,27 +397,7 @@ const handleFileSelectAuto = async (e) => {
   }
 }
 
-// 点击外部关闭菜单
-const closePanelOnClickOutside = (e) => {
-  // 检查是否点击在子菜单外部
-  const isOutsideSubMenu = !e.target.closest('.fixed.z-\\[60\\]')
-  if (isOutsideSubMenu) {
-    showSubMenu.value = null
-  }
-  
-  if (activePanel.value === 'edit' && editMenuRef.value && !editMenuRef.value.contains(e.target)) {
-    activePanel.value = null
-  } else if (activePanel.value === 'view' && viewMenuRef.value && !viewMenuRef.value.contains(e.target)) {
-    activePanel.value = null
-  } else if (activePanel.value === 'file' && fileMenuRef.value && !fileMenuRef.value.contains(e.target) && isOutsideSubMenu) {
-    activePanel.value = null
-  }
-}
-document.addEventListener('click', closePanelOnClickOutside)
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', closePanelOnClickOutside)
-})
+// 菜单的点击外部关闭由 ContextMenu 组件的遮罩层处理，无需额外监听
 
 // AI配置弹窗
 const showSetting = ref(false)

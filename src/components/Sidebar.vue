@@ -14,13 +14,8 @@
         @click="handleCreateNote"
         :disabled="isCreating"
       >
-        <svg v-if="!isCreating" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
-        </svg>
-        <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <Icon name="doc" class="w-3.5 h-3.5" v-if="!isCreating" />
+        <Icon name="spinner" class="w-3.5 h-3.5 animate-spin" v-else />
         新建笔记
       </button>
       <button
@@ -28,9 +23,7 @@
         @click="handleCreateFolder"
         :disabled="isCreating"
       >
-        <svg v-if="!isCreating" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
+        <Icon name="add-folder" class="w-4 h-4" v-if="!isCreating" />
         新建文件夹
       </button>
     </div>
@@ -70,18 +63,13 @@
         <div v-if="searchResults.length === 0" class="p-4 text-center text-sm transition-colors duration-300" :class="isDark ? 'text-slate-500' : 'text-slate-400'">无匹配结果</div>
       </div>
 
-      <!-- 主内容区域：根据模式切换组件 -->
+      <!-- 主内容区域：在线/本地共用同一套侧边栏外观，仅接入不同的数据与逻辑 -->
       <div v-else class="flex-1 overflow-y-auto overflow-x-hidden">
-        <!-- 在线模式：文件夹树 + 未分类笔记 -->
+        <FolderTree ref="folderTreeRef" @open-note="handleOpenLocalNote" />
+        <!-- 在线模式：未分类笔记区 -->
         <template v-if="localModeStore.mode.value === 'online'">
-          <div class="shrink-0"><FolderTree /></div>
           <div class="h-px mx-3 my-2 shrink-0" :class="isDark ? 'bg-slate-600' : 'bg-slate-300'"></div>
           <UnsortedNotes />
-        </template>
-        
-        <!-- 本地模式：本地文件树（仅初始化时扫描，不自动刷新） -->
-        <template v-else>
-          <LocalFolderTree ref="localFolderTreeRef" @refresh="onLocalRefresh" @open-note="handleOpenLocalNote" />
         </template>
         <!-- 手动刷新按钮（本地模式，兜底同步磁盘变化） -->
         <div v-if="localModeStore.mode.value === 'local'" class="shrink-0 px-3 py-2 border-t" :class="isDark ? 'border-slate-600' : 'border-slate-200'">
@@ -90,13 +78,8 @@
             :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'"
             @click="handleManualRefresh"
           >
-            <svg v-if="localRefreshing" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <Icon name="spinner" class="w-3.5 h-3.5 animate-spin" v-if="localRefreshing" />
+            <Icon name="refresh" class="w-3.5 h-3.5" v-else />
             刷新
           </button>
         </div>
@@ -131,30 +114,6 @@
         更改路径
       </button>
     </div>
-
-    <!-- 删除确认弹窗 -->
-    <div v-if="showDeleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDeleteModal=false">
-      <div class="p-5 rounded w-80 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
-        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">确认删除</h3>
-        <p class="mb-5 transition-colors duration-300" :class="isDark ? 'text-slate-400' : 'text-slate-600'">{{ deleteMessage }}</p>
-        <div class="flex justify-end gap-3">
-          <button class="px-4 py-1.5 rounded transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showDeleteModal=false">取消</button>
-          <button class="px-4 py-1.5 rounded bg-red-500 hover:bg-red-600 text-white" @click="confirmDelete">确定删除</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 引导选择文件夹弹窗（本地模式下没选文件夹时） -->
-    <div v-if="showSelectFolderPrompt" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showSelectFolderPrompt=false">
-      <div class="p-5 rounded w-80 transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
-        <h3 class="text-lg font-bold mb-3 transition-colors duration-300" :class="isDark ? 'text-slate-100' : 'text-slate-800'">选择本地文件夹</h3>
-        <p class="mb-5 transition-colors duration-300" :class="isDark ? 'text-slate-400' : 'text-slate-600'">请先选择一个本地文件夹作为笔记存储目录。</p>
-        <div class="flex justify-end gap-3">
-          <button class="px-4 py-1.5 rounded transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showSelectFolderPrompt=false">取消</button>
-          <button class="px-4 py-1.5 rounded bg-indigo-500 hover:bg-indigo-600 text-white" @click="selectLocalFolder">选择文件夹</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -167,8 +126,7 @@ import { useModalStore } from '../stores/useModalStore'
 import { useLocalModeStore } from '../stores/useLocalModeStore'
 import FolderTree from './FolderTree.vue'
 import UnsortedNotes from './UnsortedNotes.vue'
-import LocalFolderTree from './LocalFolderTree.vue'
-import matter from 'gray-matter'
+import Icon from './Icon.vue'
 
 const isDark = inject('isDark', ref(false))
 
@@ -179,7 +137,7 @@ const localModeStore = useLocalModeStore()
 
 const {
   noteList, activeId,
-  addNote, delNote, updateNote, openNote, addLocalNoteDirectly, finalizeLocalNote
+  addNote, delNote, updateNote, openNote, createLocalNote
 } = noteStore
 const { folderList, addFolder } = folderStore
 
@@ -192,7 +150,12 @@ const handleCreateNote = async () => {
   
   if (localModeStore.mode.value === 'local') {
     if (!localModeStore.hasFolder()) {
-      showSelectFolderPrompt.value = true
+      const confirmed = await modalStore.confirm({
+        title: '选择本地文件夹',
+        message: '请先选择一个本地文件夹作为笔记存储目录。',
+        confirmText: '选择文件夹'
+      })
+      if (confirmed) await selectLocalFolder()
       return
     }
     // 显示输入框
@@ -205,21 +168,11 @@ const handleCreateNote = async () => {
     
     isCreating.value = true
     try {
-      const result = await addLocalNoteDirectly('', name.trim(), '')
+      const result = await createLocalNote('', name.trim(), '')
       if (result) {
-        // 异步写盘到文件系统
-        try {
-          const fm = { title: name.trim(), created: new Date().toISOString(), updated: new Date().toISOString() }
-          const fileContent = matter.stringify('', fm)
-          await localModeStore.writeFile('', result.filename, fileContent)
-          finalizeLocalNote(result.id, { filename: result.filename })
-          // 刷新根目录，让新笔记立即出现
-          if (localFolderTreeRef.value?.refreshScan) {
-            localFolderTreeRef.value.refreshScan()
-          }
-        } catch (err) {
-          console.error('本地笔记写入失败:', err)
-          modalStore.showToast('保存失败: ' + err.message, 'error')
+        // 刷新根目录，让新笔记立即出现
+        if (folderTreeRef.value?.refreshScan) {
+          folderTreeRef.value.refreshScan()
         }
       }
     } finally {
@@ -235,7 +188,12 @@ const handleCreateFolder = async () => {
   
   if (localModeStore.mode.value === 'local') {
     if (!localModeStore.hasFolder()) {
-      showSelectFolderPrompt.value = true
+      const confirmed = await modalStore.confirm({
+        title: '选择本地文件夹',
+        message: '请先选择一个本地文件夹作为笔记存储目录。',
+        confirmText: '选择文件夹'
+      })
+      if (confirmed) await selectLocalFolder()
       return
     }
     const name = await modalStore.prompt({
@@ -246,8 +204,8 @@ const handleCreateFolder = async () => {
     if (name?.trim()) {
       await localModeStore.addLocalFolder('', name.trim())
       // 通知子组件刷新
-      if (localFolderTreeRef.value?.refreshScan) {
-        localFolderTreeRef.value.refreshScan()
+      if (folderTreeRef.value?.refreshScan) {
+        folderTreeRef.value.refreshScan()
       }
     }
   } else {
@@ -295,29 +253,24 @@ const switchMode = async () => {
   const next = localModeStore.mode.value === 'online' ? 'local' : 'online'
   localModeStore.setMode(next)
   // 切到本地时串行刷新：清缓存 → 扫描，避免新旧目录数据混杂
-  if (next === 'local' && localFolderTreeRef.value?.resetAndScan) {
-    await localFolderTreeRef.value.resetAndScan()
+  if (next === 'local' && folderTreeRef.value?.resetAndScan) {
+    await folderTreeRef.value.resetAndScan()
   }
 }
 
 // 手动刷新（本地模式兜底）
 async function handleManualRefresh() {
-  if (!localFolderTreeRef.value?.refreshScan) return
+  if (!folderTreeRef.value?.refreshScan) return
   localRefreshing.value = true
   try {
-    await localFolderTreeRef.value.refreshScan()
+    await folderTreeRef.value.refreshScan()
   } finally {
     localRefreshing.value = false
   }
 }
 
 // ==========本地模式操作==========
-const showSelectFolderPrompt = ref(false)
-const localFolderTreeRef = ref(null)
-
-const onLocalRefresh = () => {
-  // 当本地文件夹树触发刷新事件时处理
-}
+const folderTreeRef = ref(null)
 
 // 打开本地笔记（处理文件系统笔记和临时内存笔记）
 const handleOpenLocalNote = async (data) => {
@@ -369,7 +322,6 @@ const selectLocalFolder = async () => {
   try {
     const handle = await window.showDirectoryPicker()
     localModeStore.setFolderHandle(handle)
-    showSelectFolderPrompt.value = false
   } catch (err) {
     if (err.name !== 'AbortError') console.error('选择文件夹失败:', err)
   }
@@ -381,37 +333,13 @@ const changeLocalFolderPath = async () => {
     const handle = await window.showDirectoryPicker()
     localModeStore.setFolderHandle(handle)
     // 目录切换后串行清缓存并重新扫描，防止新旧目录数据混杂
-    if (localFolderTreeRef.value?.resetAndScan) {
-      await localFolderTreeRef.value.resetAndScan()
+    if (folderTreeRef.value?.resetAndScan) {
+      await folderTreeRef.value.resetAndScan()
     }
   } catch (err) {
     if (err.name !== 'AbortError') console.error('更改文件夹路径失败:', err)
   }
 }
 
-// ==========删除确认==========
-const showDeleteModal = ref(false)
-const deleteMessage = ref('')
-let pendingDeleteId = ''
-let pendingDeleteType = ''
-
-const openDeleteConfirm = (id, type, message) => {
-  pendingDeleteId = id
-  pendingDeleteType = type
-  deleteMessage.value = message
-  showDeleteModal.value = true
-}
-
-const confirmDelete = async () => {
-  if (pendingDeleteType === 'note') {
-    delNote(pendingDeleteId)
-  } else if (pendingDeleteType === 'folder') {
-    await folderStore.deleteFolder(pendingDeleteId)
-  }
-  showDeleteModal.value = false
-  pendingDeleteId = ''
-  pendingDeleteType = ''
-}
-
-defineExpose({ openDeleteConfirm })
+// 注：删除确认等模态对话框已统一改用 useModalStore.confirm / prompt，不再手搓弹窗。
 </script>

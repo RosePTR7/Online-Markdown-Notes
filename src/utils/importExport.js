@@ -118,6 +118,6 @@ function readFile(file) {
 // HTML 转义
 function escapeHtml(str) {
   return str.replace(/[&<>"']/g, (c) => ({
-    '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;'
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]))
 }

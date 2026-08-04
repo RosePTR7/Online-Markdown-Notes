@@ -1,5 +1,4 @@
 import { ref } from 'vue'
-import matter from 'gray-matter'
 
 // ==================== 运行时状态（模块级单例） ====================
 const mode = ref(localStorage.getItem('localMode') || 'online')
@@ -95,23 +94,6 @@ const invalidateCache = (relativePath) => {
   }
 }
 
-// 将新项合并进缓存（仅当该目录缓存已存在时更新，避免无谓预热）
-const mergeIntoCache = (relativePath, items) => {
-  const cacheKey = relativePath || '__root__'
-  if (!folderCache.has(cacheKey)) return
-  const existing = folderCache.get(cacheKey)
-  const merged = existing.map(old => {
-    const fresh = items.find(i => i.name === old.name && i.kind === old.kind)
-    return fresh || old
-  })
-  // 追加扫描出的新项（已存在的跳过）
-  for (const item of items) {
-    if (!merged.some(m => m.name === item.name && m.kind === item.kind)) {
-      merged.push(item)
-    }
-  }
-  folderCache.set(cacheKey, merged)
-}
 
 // 递归复制目录内容（文件系统无原生 rename，需新建+复制+删除）
 const copyDirectory = async (src, dest) => {
@@ -136,29 +118,9 @@ const setMode = (m) => {
   localStorage.setItem('localMode', m)
 }
 
-const addLocalNote = async (dirPath, title, content) => {
-  // 生成基于时间戳的 ID（纯文件系统使用，不与 IndexedDB 混淆）
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-  const filename = `${id}.md`
-  
-  const fm = {
-    title,
-    created: new Date().toISOString(),
-    updated: new Date().toISOString()
-  }
-  const fileContent = matter.stringify(content, fm)
-  
-  await writeFile(dirPath, filename, fileContent)
-  // 主动把新项合并进缓存，让已展开目录立即显示
-  mergeIntoCache(dirPath, [{ name: filename, kind: 'file' }])
-  invalidateCache(dirPath)
-  
-  return { id, path: dirPath, filename }
-}
-
 const addLocalFolder = async (parentPath, name) => {
   await getOrCreateDirectory(parentPath ? parentPath + '/' + name : name)
-  mergeIntoCache(parentPath, [{ name, kind: 'directory' }])
+  // 写盘后使该目录的磁盘缓存失效，下次刷新会从磁盘重新扫描到新文件夹
   invalidateCache(parentPath)
 }
 
@@ -232,7 +194,6 @@ const instance = {
   deleteFile,
   listDirectoryContents,
   invalidateCache,
-  addLocalNote,
   addLocalFolder,
   deleteLocalNote,
   deleteLocalFolder,

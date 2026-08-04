@@ -1,7 +1,8 @@
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
-import matter from 'gray-matter'
 import { noteTable, aiConfigTable } from '../utils/db'
+import { useLocalModeStore } from './useLocalModeStore'
+import { buildLocalNoteFile } from '../utils/localFile'
 
 // ==================== 运行时状态（模块级单例） ====================
 const noteList = ref([])
@@ -87,7 +88,7 @@ const closeTab = (id) => {
  * @returns {Promise<Object|null>} - 成功返回笔记对象，失败返回 null
  */
 const addLocalNoteDirectly = async (dirPath, title, content) => {
-  // 1. 生成 ID 并创建内存笔记
+  // 1. 生成 ID 并创建内存笔记（立即渲染占位）
   const id = nanoid()
   const newNote = {
     id,
@@ -99,28 +100,19 @@ const addLocalNoteDirectly = async (dirPath, title, content) => {
     createTime: Date.now(),
     updateTime: Date.now()
   }
-  
+
   // 2. 先加入内存列表（立刻渲染）
   noteList.value.unshift(newNote)
   openNote(id)
-  
-  // 3. 异步写盘
+
+  // 3. 仅计算文件名（实际写盘由 createLocalNote 统筹，避免组件层重复 frontmatter 构建）
   try {
-    // 生成文件名（基于标题，替换非法字符），避免冲突时追加时间戳
-    const safeTitle = title.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_') || 'untitled'
-    const filename = `${safeTitle}.md`
-    const fm = { title, created: new Date().toISOString(), updated: new Date().toISOString() }
-    const fileContent = matter.stringify(content, fm)
-    
-    // 需要从外部写入文件（因为这里无法访问 FileSystem Access API）
-    // 返回文件名和 ID 供调用者处理
+    const { filename } = buildLocalNoteFile(title, content)
     newNote.filename = filename
-    newNote._tempFilename = filename // 临时标记
-    
     return { id, filename, note: newNote }
   } catch (err) {
-    // 4. 写盘失败：从内存中移除
-    console.error('本地笔记写盘失败:', err)
+    // 文件名计算失败：从内存中移除
+    console.error('本地笔记文件名生成失败:', err)
     noteList.value = noteList.value.filter(n => n.id !== id)
     if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
     return null
@@ -128,7 +120,32 @@ const addLocalNoteDirectly = async (dirPath, title, content) => {
 }
 
 /**
- * 完成本地笔记写盘（由 Sidebar 调用）
+ * 本地新建笔记的统一入口（store 内收口，组件只调用它）：
+ * 内存占位（addLocalNoteDirectly）→ 写盘（matter + FileSystem Access）→ 失效目录缓存 → 落地（finalizeLocalNote）。
+ * 原先散落在 Sidebar / FolderTree 的 fm + matter.stringify + writeFile + finalize 三段重复逻辑因此收敛为一处。
+ * @returns {Promise<Object|null>} 成功返回 { id, filename, note }，失败返回 null
+ */
+const createLocalNote = async (dirPath, title, content = '') => {
+  const result = await addLocalNoteDirectly(dirPath, title, content)
+  if (!result) return null
+  try {
+    const { filename, fileContent } = buildLocalNoteFile(title, content)
+    const local = useLocalModeStore()
+    await local.writeFile(dirPath, filename, fileContent)
+    local.invalidateCache(dirPath)
+    finalizeLocalNote(result.id, { filename })
+    return result
+  } catch (err) {
+    // 写盘失败：回滚内存占位
+    console.error('本地笔记写盘失败:', err)
+    noteList.value = noteList.value.filter(n => n.id !== result.id)
+    if (activeId.value === result.id) activeId.value = openTabs.value[0]?.id || ''
+    return null
+  }
+}
+
+/**
+ * 完成本地笔记写盘（由 createLocalNote 调用）
  */
 const finalizeLocalNote = (id, persistedData) => {
   const idx = noteList.value.findIndex(n => n.id === id)
@@ -146,7 +163,7 @@ const instance = {
   noteList, openTabs, activeId, aiConfig, currentNote, getUnsortedNotes,
   loadNotes, loadAiConfig, saveAiConfig,
   addNote, delNote, updateNote, openNote, closeTab, moveNoteToFolder,
-  addLocalNoteDirectly, finalizeLocalNote
+  addLocalNoteDirectly, createLocalNote, finalizeLocalNote
 }
 
 export function useNoteStore() { return instance }
