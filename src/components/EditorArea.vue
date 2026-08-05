@@ -278,13 +278,10 @@ import {
   exportNoteAsHTML, 
   exportAllAsJSON, 
   downloadFile,
-  importMarkdown,
-  importFrontmatterMarkdown,
-  importTxt,
+  importTextFile,
   importJSON
 } from '../utils/importExport'
 import { noteTable, folderTable } from '../utils/db'
-import { nanoid } from 'nanoid'
 
 const props = defineProps({
   modelValue: {
@@ -383,11 +380,11 @@ const handleFileSelectAuto = async (e) => {
       const data = await importJSON(file)
       await handleJSONImport(data)
     } else if (ext === 'txt') {
-      const noteData = await importTxt(file)
+      const noteData = await importTextFile(file)
       await addNoteFromImport(noteData)
     } else {
       // .md / .markdown -> 尝试解析 frontmatter，失败则用纯 markdown
-      const noteData = await importFrontmatterMarkdown(file)
+      const noteData = await importTextFile(file, { parseFrontmatter: true })
       await addNoteFromImport(noteData)
     }
     modalStore.showToast('导入成功', 'success')
@@ -599,7 +596,7 @@ defineExpose({ handleFind, handleReplace, openFindReplacePanel, setContent, clos
 const noteStore = useNoteStore()
 const {
   noteList, openTabs, activeId, aiConfig, currentNote,
-  updateNote, openNote, closeTab
+  updateNote, openNote, closeTab, addNote, importNote
 } = noteStore
 
 // ==========标签页拖拽排序==========
@@ -756,19 +753,9 @@ const applyPolish = () => {
 // ==========导入导出功能==========
 const modalStore = useModalStore()
 
-// 从导入数据添加笔记
+// 从导入数据添加笔记（复用 store 的 addNote，不再手搓 Dexie 写库）
 const addNoteFromImport = async (data) => {
-  const newNote = {
-    id: nanoid(),
-    title: data.title || '导入的笔记',
-    content: data.content || '',
-    folderId: data.folderId || null,
-    createTime: data.createTime || Date.now(),
-    updateTime: data.updateTime || Date.now()
-  }
-  await noteTable.add(newNote)
-  noteList.value.push(newNote)
-  openNote(newNote.id)
+  await addNote(data.folderId || null, data.title || '导入的笔记', data.content || '')
 }
 
 // 处理 JSON 备份导入
@@ -794,14 +781,11 @@ const handleJSONImport = async (data) => {
     window.location.reload()
   }
   
-  // 导入笔记
+  // 导入笔记（复用 store 的 importNote，保留原始 id；不再手搓 Dexie 写库）
   if (data.notes && Array.isArray(data.notes)) {
     for (const note of data.notes) {
       const existing = await noteTable.get(note.id)
-      if (!existing) {
-        await noteTable.add(note)
-        noteList.value.push(note)
-      }
+      if (!existing) await importNote(note)
     }
   }
 }

@@ -10,9 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-.build-verify
-.build-verify-fresh
-.build-verify-fresh2
+.build-verify*
 *.local
 
 # Editor directories and files

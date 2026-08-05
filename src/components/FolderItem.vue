@@ -57,7 +57,7 @@
         :folder="childFolder"
         :depth="depth + 1"
         :is-local="isLocal"
-        :contents="childFolder"
+        :contents="childFolder.contents || []"
       />
 
       <!-- 文件夹内的条目：在线=笔记 / 本地=文件（外观一致） -->
@@ -170,6 +170,7 @@ const childFolders = computed(() => {
   return items
     .filter(i => i.kind === 'directory')
     .map(i => ({ ...i, key: base ? base + '/' + i.name : i.name, path: base ? base + '/' + i.name : i.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 })
 
 // 文件夹内条目（在线=笔记对象 / 本地=.md 文件对象），统一为 { key, ... }
@@ -184,6 +185,7 @@ const items = computed(() => {
   return (props.contents || [])
     .filter(i => i.kind === 'file' && i.name.endsWith('.md'))
     .map(f => ({ name: f.name, dirPath: base, key: f.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 })
 
 // 本地模式下从文件名解析标题 / 激活态

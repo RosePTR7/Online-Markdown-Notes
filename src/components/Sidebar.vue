@@ -137,7 +137,7 @@ const localModeStore = useLocalModeStore()
 
 const {
   noteList, activeId,
-  addNote, delNote, updateNote, openNote, createLocalNote
+  createNote, delNote, updateNote, openNote
 } = noteStore
 const { folderList, addFolder } = folderStore
 
@@ -147,39 +147,34 @@ const isCreating = ref(false)
 // ==========通用创建操作==========
 const handleCreateNote = async () => {
   if (isCreating.value) return
-  
-  if (localModeStore.mode.value === 'local') {
-    if (!localModeStore.hasFolder()) {
-      const confirmed = await modalStore.confirm({
-        title: '选择本地文件夹',
-        message: '请先选择一个本地文件夹作为笔记存储目录。',
-        confirmText: '选择文件夹'
-      })
-      if (confirmed) await selectLocalFolder()
-      return
-    }
-    // 显示输入框
-    const name = await modalStore.prompt({
-      title: '新建笔记',
-      defaultValue: '',
-      placeholder: '请输入笔记名称'
+
+  // 本地模式：未选目录时先引导选择，再创建
+  if (localModeStore.mode.value === 'local' && !localModeStore.hasFolder()) {
+    const confirmed = await modalStore.confirm({
+      title: '选择本地文件夹',
+      message: '请先选择一个本地文件夹作为笔记存储目录。',
+      confirmText: '选择文件夹'
     })
-    if (!name?.trim()) return
-    
-    isCreating.value = true
-    try {
-      const result = await createLocalNote('', name.trim(), '')
-      if (result) {
-        // 刷新根目录，让新笔记立即出现
-        if (folderTreeRef.value?.refreshScan) {
-          folderTreeRef.value.refreshScan()
-        }
-      }
-    } finally {
-      isCreating.value = false
+    if (confirmed) await selectLocalFolder()
+    return
+  }
+
+  const name = await modalStore.prompt({
+    title: '新建笔记',
+    defaultValue: '',
+    placeholder: '请输入笔记名称'
+  })
+  if (!name?.trim()) return
+
+  isCreating.value = true
+  try {
+    const result = await createNote(null, name.trim(), '')
+    // 本地模式新建后刷新目录树让新笔记立即出现（在线模式由 addNote 自行更新列表）
+    if (result && localModeStore.mode.value === 'local') {
+      folderTreeRef.value?.refreshScan?.()
     }
-  } else {
-    addNote(null)
+  } finally {
+    isCreating.value = false
   }
 }
 
@@ -263,7 +258,8 @@ async function handleManualRefresh() {
   if (!folderTreeRef.value?.refreshScan) return
   localRefreshing.value = true
   try {
-    await folderTreeRef.value.refreshScan()
+    // 深度刷新：根目录 + 所有已展开子目录都从磁盘重读，彻底反映外部增删改名
+    await folderTreeRef.value.refreshScan(true)
   } finally {
     localRefreshing.value = false
   }
@@ -300,16 +296,16 @@ const handleOpenLocalNote = async (data) => {
       }
     }
     
-    // 检查是否已存在
-    const existingByFilename = noteList.value.find(n => n.filename === data.name)
+    // 检查是否已存在（按 filename + dirPath 精确匹配，避免同名不同目录误判）
+    const existingByFilename = noteList.value.find(n => n.filename === data.name && (n.dirPath || '') === (data.dirPath || ''))
     if (existingByFilename) {
       openNote(existingByFilename.id)
       return
     }
-    
-    // 生成 nanoid 作为笔记 ID 并加入内存
+
+    // 生成 nanoid 作为笔记 ID 并加入内存（记录 dirPath，重命名/删除时用于定位已打开的标签页）
     const noteId = nanoid()
-    const newNote = { id: noteId, filename: data.name, title, content: actualContent, folderId: null, isLocal: true, createTime: Date.now(), updateTime: Date.now() }
+    const newNote = { id: noteId, filename: data.name, dirPath: data.dirPath || '', title, content: actualContent, folderId: null, isLocal: true, createTime: Date.now(), updateTime: Date.now() }
     noteList.value.push(newNote)
     openNote(noteId)
   } catch (err) {

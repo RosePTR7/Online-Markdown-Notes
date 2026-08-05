@@ -4,6 +4,8 @@ import { ref } from 'vue'
 const mode = ref(localStorage.getItem('localMode') || 'online')
 let folderHandle = null
 const folderCache = new Map()
+// 目录句柄变更版本号：选/换/清目录时自增，供 UI 感知并重启观察器
+const folderHandleVersion = ref(0)
 
 // ==================== 持久配置（localStorage） ====================
 if (!localStorage.getItem('localMode')) {
@@ -17,12 +19,17 @@ const setFolderHandle = (handle) => {
   folderHandle = handle
   // 绑定新目录前清空旧缓存，防止新旧目录数据混杂
   folderCache.clear()
+  folderHandleVersion.value++
 }
 
 const clearFolderHandle = () => {
   folderHandle = null
   folderCache.clear()
+  folderHandleVersion.value++
 }
+
+// 暴露当前目录句柄（供 FileSystemObserver 观察）
+const getFolderHandle = () => folderHandle
 
 const getOrCreateDirectory = async (relativePath) => {
   if (!folderHandle) throw new Error('未绑定本地文件夹')
@@ -132,21 +139,25 @@ const deleteLocalNote = async (dirPath, filename) => {
 const deleteLocalFolder = async (dirPath) => {
   if (!folderHandle) throw new Error('未绑定本地文件夹')
   const parts = dirPath.split('/').filter(Boolean)
-  let current = folderHandle
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part)
+  if (parts.length === 0) throw new Error('无法删除根目录')
+  const folderName = parts[parts.length - 1]
+  const parentPath = parts.slice(0, -1).join('/')
+  // 走到「父目录」，再从父目录按名字删除目标文件夹（含递归子项）。
+  // 旧实现错误地走进了目标文件夹内部再 removeEntry(自身名)，导致 NotFoundError。
+  const parent = await getOrCreateDirectory(parentPath)
+  try {
+    await parent.removeEntry(folderName, { recursive: true })
+  } catch (err) {
+    // 老旧实现不支持 recursive 选项（抛出 TypeError）时，降级为逐层删除子项再删自身
+    if (err && err.name === 'TypeError') {
+      const target = await parent.getDirectoryHandle(folderName)
+      for await (const [name, handle] of target.entries()) {
+        await target.removeEntry(name, { recursive: true })
+      }
+      await parent.removeEntry(folderName)
+    } else throw err
   }
-  // 安全删除子项
-  for await (const [name, handle] of current.entries()) {
-    if (handle.kind === 'directory') {
-      try { await current.removeEntryRecursive(name, { recursive: true }) }
-      catch { await current.removeEntry(name) }
-    } else {
-      await current.removeEntry(name)
-    }
-  }
-  await current.removeEntry(parts[parts.length - 1])
-  invalidateCache(dirPath)
+  invalidateCache(parentPath)
 }
 
 // 重命名文件夹（新建新目录 → 复制内容 → 删除旧目录）
@@ -178,6 +189,26 @@ const renameDirectory = async (dirPath, newName) => {
   invalidateCache(parentPath)
 }
 
+// 重命名本地笔记文件（文件系统无原生 rename：读取旧内容 → 新名写盘 → 删除旧文件）
+const renameLocalFile = async (dirPath, oldName, newTitle) => {
+  if (!folderHandle) throw new Error('未绑定本地文件夹')
+  if (!oldName) return
+  const newName = newTitle.endsWith('.md') ? newTitle : newTitle + '.md'
+  if (oldName === newName) return
+  const dir = await getOrCreateDirectory(dirPath)
+  // 目标已存在则拒绝，避免覆盖
+  try {
+    await dir.getFileHandle(newName)
+    throw new Error(`文件 "${newName}" 已存在`)
+  } catch (e) {
+    if (e.name !== 'NotFoundError') throw e
+  }
+  const content = await readFile(dirPath, oldName)
+  await writeFile(dirPath, newName, content)
+  await deleteFile(dirPath, oldName)
+  invalidateCache(dirPath)
+}
+
 // ==================== 单例导出 ====================
 const instance = {
   // 状态
@@ -188,6 +219,8 @@ const instance = {
   setMode,
   setFolderHandle,
   clearFolderHandle,
+  getFolderHandle,
+  folderHandleVersion,
   getOrCreateDirectory,
   readFile,
   writeFile,
@@ -197,7 +230,8 @@ const instance = {
   addLocalFolder,
   deleteLocalNote,
   deleteLocalFolder,
-  renameDirectory
+  renameDirectory,
+  renameLocalFile
 }
 
 export function useLocalModeStore() {

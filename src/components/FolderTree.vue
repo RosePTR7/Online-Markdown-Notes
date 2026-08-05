@@ -114,8 +114,10 @@
         <MenuItem icon="delete" label="删除笔记" danger @click="deleteNote" />
       </template>
 
-      <!-- 文件菜单（本地模式） -->
+      <!-- 文件菜单（本地模式）：与在线笔记菜单共用同一套外观，仅底层分派到本地文件系统 -->
       <template v-if="menuType === 'file'">
+        <MenuItem icon="rename" label="重命名" @click="renameLocalNote" />
+        <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
         <MenuItem icon="delete" label="删除笔记" danger @click="confirmDeleteLocalNote" />
       </template>
     </ContextMenu>
@@ -123,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, provide, onMounted, watch } from 'vue'
+import { ref, computed, inject, provide, onMounted, onUnmounted, watch } from 'vue'
 import { useFolderStore } from '../stores/useFolderStore'
 import { useNoteStore } from '../stores/useNoteStore'
 import { useModalStore } from '../stores/useModalStore'
@@ -147,12 +149,12 @@ const {
   getTopLevelFolders, folderList
 } = folderStore
 const {
-  addNote, updateNote, moveNoteToFolder, delNote,
-  noteList, activeId, createLocalNote
+  updateNote, moveNoteToFolder, delNote, removeLocalNote,
+  noteList, activeId, createNote, updateLocalNoteLocation, updateLocalNotesDirPath
 } = noteStore
 const {
   hasFolder, listDirectoryContents, addLocalFolder, deleteLocalNote,
-  deleteLocalFolder, renameDirectory
+  deleteLocalFolder, renameDirectory, renameLocalFile, getFolderHandle, folderHandleVersion, invalidateCache
 } = localModeStore
 
 const isLocal = computed(() => localModeStore.mode.value === 'local')
@@ -165,8 +167,8 @@ const loading = ref(false)
 const rootItems = ref([])
 // 已懒加载过的目录路径集合（替代原先 FolderTree 自建的 folderCache Map，避免与 store 的 folderCache 双缓存同一份目录列表）
 const loadedDirs = ref(new Set())
-const rootFolders = computed(() => rootItems.value.filter(i => i.kind === 'directory'))
-const rootFiles = computed(() => rootItems.value.filter(i => i.kind === 'file' && i.name.endsWith('.md')))
+const rootFolders = computed(() => rootItems.value.filter(i => i.kind === 'directory').sort((a, b) => a.name.localeCompare(b.name)))
+const rootFiles = computed(() => rootItems.value.filter(i => i.kind === 'file' && i.name.endsWith('.md')).sort((a, b) => a.name.localeCompare(b.name)))
 
 const tempNotes = computed(() => noteList.value.filter(n => n.isTemp === true))
 const localNotesMap = computed(() => {
@@ -193,34 +195,46 @@ async function scanDirectory(relativePath = '') {
   return await listDirectoryContents(relativePath)
 }
 
-// 增量合并：保留已存在项的 contents，新增项、删除消失项
+// 增量合并：以磁盘最新列表(newList)为基础，匹配项保留已展开文件夹的 contents（克隆为全新数组，
+// 避免复用旧引用导致后续就地修改无法触发响应式），磁盘上已消失的项（删除/改名）一律丢弃。
 function mergeItems(oldList, newList) {
-  const merged = oldList.map(old => {
-    const fresh = newList.find(i => i.name === old.name && i.kind === old.kind)
-    return fresh ? { ...fresh, contents: old.contents || [] } : old
+  return newList.map(fresh => {
+    const old = oldList.find(o => o.name === fresh.name && o.kind === fresh.kind)
+    return old ? { ...fresh, contents: [...(old.contents || [])] } : { ...fresh }
   })
-  for (const item of newList) {
-    if (!merged.some(m => m.name === item.name && m.kind === item.kind)) {
-      merged.push(item)
-    }
-  }
-  return merged
 }
 
-// 并发锁：进行中的扫描复用同一 Promise
-let scanPromise = null
-async function refreshScan() {
+// 并发控制：进行中的扫描用 scanning 标记；深刷新请求若恰逢浅扫描在跑，记住 pendingDeep，扫描结束后补一次深刷新。
+// 早期版本用「return scanPromise」直接复用在途 Promise，会把深刷新请求降级为浅刷新（deep 标志被丢弃），
+// 导致嵌套目录改名/外部改动后侧边栏不刷新——现改为可升级的 pendingDeep 机制，且 scanning 必定在 finally 中清除，不会永久卡死。
+let scanning = false
+let pendingDeep = false
+// deep=true 时额外同步所有已展开的子目录，反映外部深层改动（如磁盘改名/新建子目录内文件）
+async function refreshScan(deep = false) {
   if (!hasFolder()) { rootItems.value = []; return }
-  if (scanPromise) return scanPromise
-  loading.value = true
-  scanPromise = (async () => {
-    try {
-      const list = await scanDirectory()
-      rootItems.value = mergeItems(rootItems.value, list)
-    } catch (err) { console.error('扫描本地文件夹失败:', err) }
-    finally { loading.value = false }
-  })()
-  try { await scanPromise } finally { scanPromise = null }
+  if (scanning) {
+    if (deep) pendingDeep = true // 在途的若是浅刷新，也要等它结束后补一次深刷新
+    return
+  }
+  scanning = true
+  try {
+    invalidateCache('') // 根目录一定从磁盘重读，避免读到旧缓存
+    const list = await scanDirectory()
+    rootItems.value = mergeItems(rootItems.value, list)
+    if (deep) {
+      for (const dir of [...loadedDirs.value]) {
+        invalidateCache(dir) // 子目录缓存一并失效，重扫才反映外部改动
+        try {
+          const contents = await listDirectoryContents(dir)
+          setNodeContents(dir, contents)
+        } catch (err) { console.error('深度刷新子目录失败:', err) }
+      }
+    }
+  } catch (err) { console.error('扫描本地文件夹失败:', err) }
+  finally {
+    scanning = false
+    if (pendingDeep) { pendingDeep = false; refreshScan(true) }
+  }
 }
 
 // 清空本地缓存并重新扫描（模式切换/目录切换时调用，保证串行）
@@ -230,26 +244,42 @@ async function resetAndScan() {
   await refreshScan()
 }
 
-// 按路径在节点树中查找节点（支持嵌套）
-function findNodeByPath(items, path) {
-  const parts = path.split('/').filter(Boolean)
-  let list = items
-  let node = null
-  for (const part of parts) {
-    node = list.find(i => i.name === part)
-    if (!node) return null
-    list = node.contents || (node.contents = [])
-  }
-  return node
+// 不可变更新：按路径在节点树中定位目标节点并替换其 contents，返回一棵树（路径沿途节点与新 contents 均为全新引用）。
+// 替换 rootItems.value 整棵引用即可触发所有依赖该树的 FolderItem 重渲染，解决嵌套文件夹内改/删后侧边栏不刷新。
+function replaceNodeContents(items, parts, newContents) {
+  return items.map(node => {
+    if (node.name !== parts[0]) return node
+    if (parts.length === 1) {
+      return { ...node, contents: newContents }
+    }
+    return { ...node, contents: replaceNodeContents(node.contents || [], parts.slice(1), newContents) }
+  })
 }
 
-// 写入节点内容（就地修改，保证引用不丢失，递归 FolderItem 能响应）
+// 写入节点内容（不可变：重建整棵树并替换根引用，保证响应式链路可靠）
 function setNodeContents(path, contents) {
-  const node = findNodeByPath(rootItems.value, path)
-  if (node) {
-    node.contents = contents
-  }
+  const parts = (path || '').split('/').filter(Boolean)
+  if (parts.length === 0) return
+  rootItems.value = replaceNodeContents(rootItems.value, parts, contents)
   loadedDirs.value.add(path)
+}
+
+// 直接在内存树中确定性地重命名某条目：沿 dirPath 定位父目录，把名为 oldName 的条目改为 newName。
+// 重建整棵根的引用以保证响应式——这是「改名后立即反映到侧边栏」的可靠路径，
+// 不依赖 disk 重读的时序（disk 重读仅用于周期对账，且以"disk 确实含新名"为前置）。
+function renameTreeItem(dirPath, oldName, newName) {
+  const parts = (dirPath || '').split('/').filter(Boolean)
+  const walk = (items, depth) => items.map(node => {
+    if (depth < parts.length) {
+      if (node.kind === 'directory' && node.name === parts[depth]) {
+        return { ...node, contents: walk(node.contents || [], depth + 1) }
+      }
+      return node
+    }
+    if (node.name === oldName) return { ...node, name: newName }
+    return node
+  })
+  rootItems.value = walk(rootItems.value, 0)
 }
 
 // 文件夹展开时懒加载（来自本地 FolderItem 的 expand 事件）
@@ -259,6 +289,150 @@ async function onFolderExpand(folderPath, isExpanded) {
     const contents = await listDirectoryContents(folderPath)
     setNodeContents(folderPath, contents)
   } catch (err) { console.error('懒加载文件夹失败:', err) }
+}
+
+// ========== 本地文件夹自动观察（FileSystemObserver） ==========
+// 仅 Chromium（Chrome/Edge 133+）支持；不支持时静默降级，由手动刷新按钮兜底。
+// 观察根目录句柄并 recursive: true，即可递归捕获其下所有层级的 created/deleted/modified/moved 事件（含子文件夹内文件改动）。
+let fsObserver = null
+let fsChangeTimer = null
+let pendingFsRecords = []
+
+// 由相对路径分量推导出"受影响的父目录"（相对被观察根目录）。
+// 例：['a.md'] -> ''（根）；['Sub','a.md'] -> 'Sub'；['NewDir'] -> ''（根会列出新目录本身）
+const affectedDirOf = (components) => {
+  const comps = components || []
+  if (comps.length <= 1) return ''
+  return comps.slice(0, -1).join('/')
+}
+
+// 防抖：一次"保存"常触发多条记录，合并成一次刷新，避免连刷/闪烁
+const scheduleFsRefresh = (records) => {
+  console.log(records)
+  if (records && records.length) pendingFsRecords.push(...records)
+  if (fsChangeTimer) clearTimeout(fsChangeTimer)
+  fsChangeTimer = setTimeout(() => {
+    fsChangeTimer = null
+    const recs = pendingFsRecords
+    pendingFsRecords = []
+    handleFsChanges(recs)
+  }, 400)
+}
+
+// 根据变更记录：失效磁盘缓存、同步已打开标签页（外部删除/移动/文件夹重命名）、再从磁盘深刷新投影到网页。
+// 磁盘即事实来源——所有网页状态都由 refreshScan 从磁盘重读得出，无需在各处手动同步变量。
+const handleFsChanges = async (records) => {
+  const dirs = new Set()
+
+  // 当前树里所有已知目录路径（含未展开文件夹自身节点），本次刷新前树仍反映旧磁盘状态，
+  // 故可用于识别"文件夹级 moved"的旧路径。
+  const knownDirSet = new Set()
+  const collectDirs = (items, prefix = '') => {
+    for (const it of items) {
+      if (it.kind === 'directory') {
+        const p = prefix ? prefix + '/' + it.name : it.name
+        knownDirSet.add(p)
+        if (it.contents) collectDirs(it.contents, p)
+      }
+    }
+  }
+  collectDirs(rootItems.value)
+
+  const deletes = []     // 外部删除的 .md：{name, dir}
+  const creates = []     // 外部新建的 .md：{name, dir}
+  const fileMoves = []   // 明确的 moved（单文件）：{oldName, oldDir, newName, newDir}
+  const folderMoves = [] // 文件夹级 moved：{oldDirPath, newDirPath}
+  const dirOf = (c) => (c.length > 1 ? c.slice(0, -1).join('/') : '')
+
+  for (const rec of records) {
+    const comps = rec.relativePathComponents || []
+    dirs.add(affectedDirOf(comps))
+    const last = comps[comps.length - 1]
+    const isMd = !!last && last.toLowerCase().endsWith('.md')
+
+    if (rec.type === 'moved' && rec.relativePathMovedFromComponents) {
+      const fromComps = rec.relativePathMovedFromComponents
+      if (isMd) {
+        // 单个笔记文件被移动/重命名：自带 old+new 锚点，精确重映射
+        fileMoves.push({
+          oldName: fromComps[fromComps.length - 1],
+          oldDir: dirOf(fromComps),
+          newName: last,
+          newDir: dirOf(comps)
+        })
+      } else {
+        // 可能是文件夹被移动/重命名：仅当旧路径确为已知目录时才处理（避免误判非 .md 文件移动）
+        const oldDirPath = fromComps.join('/')
+        const newDirPath = comps.join('/')
+        if (oldDirPath && knownDirSet.has(oldDirPath)) {
+          folderMoves.push({ oldDirPath, newDirPath })
+        }
+      }
+    } else if (rec.type === 'deleted' && isMd) {
+      deletes.push({ name: last, dir: dirOf(comps) })
+    } else if (rec.type === 'created' && isMd) {
+      creates.push({ name: last, dir: dirOf(comps) })
+    }
+  }
+
+  // 调和 delete+create 配对：某些浏览器把"文件夹重命名"报成 delete(旧路径)+create(新路径)，
+  // 此时同名 .md 的删除应视为"移动"而非真正删除，避免误关已打开标签页、丢失内存中的编辑。
+  const pairedMoves = []
+  for (const d of deletes) {
+    const idx = creates.findIndex(c => c.name === d.name)
+    if (idx > -1) {
+      const c = creates[idx]
+      creates.splice(idx, 1) // 消费掉该 create，避免被当成新建
+      pairedMoves.push({ oldName: d.name, oldDir: d.dir, newName: c.name, newDir: c.dir })
+    } else {
+      removeLocalNote(d.name, d.dir) // 确属删除：清理已打开的标签页
+    }
+  }
+
+  // 应用所有文件级重映射（显式 moved + delete/create 配对推导）
+  for (const m of [...fileMoves, ...pairedMoves]) {
+    noteStore.updateLocalNoteLocation(m.oldName, m.oldDir, m.newName, m.newDir)
+  }
+  // 应用文件夹级重映射：批量把该目录下已打开标签页的 dirPath 前缀改掉
+  for (const f of folderMoves) {
+    noteStore.updateLocalNotesDirPath(f.oldDirPath, f.newDirPath)
+  }
+
+  for (const dir of dirs) invalidateCache(dir) // 先让磁盘缓存失效，下一步重扫才会读到最新
+  refreshScan(true) // 统一从磁盘重读，投影到侧边栏与标签页
+}
+
+const startWatching = async () => {
+  stopWatching() // 先断开旧观察器，避免重复
+  if (!('FileSystemObserver' in window)) {
+    console.info('当前浏览器不支持 FileSystemObserver，本地目录变更将仅通过手动刷新同步')
+    return
+  }
+  const handle = getFolderHandle()
+  if (!handle) return
+  try {
+    // 确保目录读取权限已授予；未授予则请求，用户拒绝则降级为手动刷新
+    const perm = await handle.queryPermission?.({ mode: 'read' })
+    if (perm !== 'granted') {
+      const req = await handle.requestPermission?.({ mode: 'read' })
+      if (req !== 'granted') {
+        console.info('未授予目录读取权限，本地目录变更将仅通过手动刷新同步')
+        return
+      }
+    }
+    const ObserverCtor = window.FileSystemObserver
+    fsObserver = new ObserverCtor((records) => scheduleFsRefresh(records))
+    await fsObserver.observe(handle, { recursive: true })
+  } catch (err) {
+    console.error('启动本地目录观察失败，将仅通过手动刷新同步:', err)
+    fsObserver = null
+  }
+}
+
+const stopWatching = () => {
+  if (fsChangeTimer) { clearTimeout(fsChangeTimer); fsChangeTimer = null }
+  pendingFsRecords = []
+  if (fsObserver) { try { fsObserver.disconnect() } catch (_) {} fsObserver = null }
 }
 
 // ========== 右键菜单（在线/本地统一） ==========
@@ -286,11 +460,12 @@ const closeMenu = () => {
 
 // ===== 菜单 handler 公共 helper：消除本地分支重复的 try/catch/刷新/toast 与文件夹查找 =====
 const findFolderById = (id) => folderList.value.find(f => f.id === id)
-// 本地写盘操作统一包裹：执行 + 刷新扫描 + 失败 toast；refresh=false 时由调用方自行刷新（如子目录定向刷新）
+// 本地写盘操作统一包裹：执行 + 从磁盘深刷新 + 失败 toast。
+// 「磁盘即事实来源」：操作落到本地磁盘后，统一用 refreshScan(true) 重读投影，不再多处手动同步变量。
 const runLocalOp = async (fn, failMsg, { refresh = true } = {}) => {
   try {
     await fn()
-    if (refresh) refreshScan()
+    if (refresh) refreshScan(true)
   } catch (err) {
     console.error(failMsg + ':', err)
     modalStore.showToast(failMsg + ': ' + err.message, 'error')
@@ -299,8 +474,8 @@ const runLocalOp = async (fn, failMsg, { refresh = true } = {}) => {
 
 // 重命名文件夹
 const startRename = async () => {
-  closeMenu()
   const target = menuTarget.value
+  closeMenu()
   if (!isLocal.value) {
     const folder = findFolderById(target)
     if (!folder) return
@@ -315,14 +490,18 @@ const startRename = async () => {
     const trimmed = newName?.trim()
     if (trimmed && trimmed !== oldName) {
       await runLocalOp(() => renameDirectory(dirPath, trimmed), '重命名失败')
+      // 重命名文件夹后，批量把该目录下已打开笔记的 dirPath 前缀从旧路径改为新路径（一处更新）
+      const parent = dirPath.includes('/') ? dirPath.slice(0, dirPath.lastIndexOf('/')) : ''
+      const newDirPath = parent ? parent + '/' + trimmed : trimmed
+      noteStore.updateLocalNotesDirPath(dirPath, newDirPath)
     }
   }
 }
 
 // 新建子文件夹
 const addSubFolder = async () => {
-  closeMenu()
   const parentPath = menuTarget.value
+  closeMenu()
   const newName = await modalStore.prompt({ title: '新建子文件夹', defaultValue: '', placeholder: '请输入文件夹名称' })
   const trimmed = newName?.trim()
   if (!trimmed) return
@@ -334,31 +513,17 @@ const addSubFolder = async () => {
 }
 
 // 在文件夹内新建笔记
+// 在文件夹内新建笔记（统一走 createNote 门面，由 store 按模式分派）
 const addNoteInFolder = async () => {
-  closeMenu()
   const dirPath = menuTarget.value
+  closeMenu()
   const name = await modalStore.prompt({ title: '新建笔记', placeholder: '请输入笔记名称' })
   if (!name?.trim()) return
 
-  if (isLocal.value) {
-    try {
-      const result = await createLocalNote(dirPath, name.trim(), '')
-      if (result) {
-        // 刷新目录：根目录刷新根内容，子目录更新懒加载缓存
-        if (dirPath) {
-          const contents = await listDirectoryContents(dirPath)
-          setNodeContents(dirPath, contents)
-        } else {
-          refreshScan()
-        }
-      }
-    } catch (err) {
-      console.error('在文件夹内新建笔记失败:', err)
-      modalStore.showToast('保存失败: ' + err.message, 'error')
-    }
-  } else {
-    await addNote(dirPath)
-  }
+  const result = await createNote(dirPath, name.trim(), '')
+  if (!result) return
+  // 本地模式：写盘即落盘，统一用 refreshScan 从磁盘重读投影（替代原先按目录定向 setNodeContents 的多处刷新）
+  if (isLocal.value) refreshScan(true)
 }
 
 // 删除文件夹
@@ -417,16 +582,62 @@ const confirmDeleteLocalNote = async () => {
   })
   if (confirmed) {
     await runLocalOp(() => deleteLocalNote(dirPath, name), '删除笔记失败')
+    removeLocalNote(name, dirPath) // 同步清理内存与标签栏中对应的本地笔记记录
   }
 }
 
-// 仅在初始化时扫描一次，模式切换回本地时也扫描
-onMounted(() => { if (isLocal.value) refreshScan() })
+// 重命名本地笔记（对齐在线"重命名"菜单，仅底层分派到本地文件系统）
+// 磁盘即事实来源：renameLocalFile 把重命名落到本地磁盘；随后仅更新「已打开标签页的磁盘位置」这一处，
+// 侧边栏由 refreshScan(true) 从磁盘重读后自然反映新名字——不再在多处手动同步变量。
+const renameLocalNote = async () => {
+  const target = menuTarget.value
+  closeMenu()
+  const { name, dirPath } = target
+  const oldTitle = getNoteTitle(name)
+  const newTitle = await modalStore.prompt({ title: '重命名笔记', defaultValue: oldTitle, placeholder: '请输入笔记名称' })
+  const trimmed = newTitle?.trim()
+  if (!trimmed || trimmed === oldTitle) return
+  const newName = trimmed.endsWith('.md') ? trimmed : trimmed + '.md'
+  try {
+    await renameLocalFile(dirPath, name, trimmed)
+    noteStore.updateLocalNoteLocation(name, dirPath, newName, dirPath)
+    // 确定性：直接在内存树中改名，侧边栏立即反映（不依赖 disk 重读时序，杜绝旧文件残留回退）
+    renameTreeItem(dirPath, name, newName)
+    // 磁盘重读做对账（观察器也会触发）；仅当 disk 确实含新名时才覆盖，避免旧文件未删干净时把新名覆盖回去
+    invalidateCache(dirPath)
+    const contents = await listDirectoryContents(dirPath)
+    console.log('[renameLocalNote] disk=', contents.map(c => c.name), 'oldStill=', contents.some(c => c.name === name), 'newHas=', contents.some(c => c.name === newName))
+    if (contents.some(c => c.name === newName)) {
+      if (dirPath) setNodeContents(dirPath, contents)
+      else rootItems.value = mergeItems(rootItems.value, contents)
+    }
+  } catch (err) {
+    console.error('重命名笔记失败:', err)
+    modalStore.showToast('重命名失败: ' + err.message, 'error')
+  }
+}
 
-watch(() => localModeStore.mode.value, (newVal) => {
-  if (newVal !== 'local' || !hasFolder()) return
-  resetAndScan()
+// 初始化：本地模式先扫描一次，并在有绑定目录时启动观察
+onMounted(() => {
+  if (isLocal.value) refreshScan()
+  if (isLocal.value && hasFolder()) startWatching()
 })
+
+// 模式切换：进入本地则清缓存重扫并启动观察；离开则停止观察
+watch(() => localModeStore.mode.value, (newVal) => {
+  if (newVal !== 'local' || !hasFolder()) { stopWatching(); return }
+  resetAndScan()
+  startWatching()
+})
+
+// 绑定/更换/清空目录：句柄变化后先清缓存重扫（保证首次/更换绑定后立即出内容），再重启观察
+watch(folderHandleVersion, () => {
+  if (isLocal.value && hasFolder()) { resetAndScan(); startWatching() }
+  else stopWatching()
+})
+
+// 组件卸载：务必断开观察器，避免内存泄漏与跨组件误触发
+onUnmounted(() => stopWatching())
 
 defineExpose({ refreshScan, resetAndScan })
 </script>

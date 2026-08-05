@@ -68,31 +68,21 @@ export function downloadFile(content, filename, mimeType) {
 
 // ==================== 导入功能 ====================
 
-// 导入 Markdown 文件（纯 Markdown）
-export async function importMarkdown(file, folderId = null) {
-  const content = await readFile(file)
-  const title = file.name.replace(/\.md$/i, '')
-  return { title, content, folderId }
-}
-
-// 导入带 Frontmatter 的 Markdown 文件
-export async function importFrontmatterMarkdown(file, folderId = null) {
+// 导入文本文件（Markdown / TXT），可选解析 Frontmatter
+export async function importTextFile(file, { parseFrontmatter = false, folderId = null } = {}) {
   const raw = await readFile(file)
-  const { data, content } = matter(raw)
-  return {
-    title: data.title || file.name.replace(/\.md$/i, ''),
-    content,
-    folderId: data.folderId || folderId,
-    createTime: data.created ? new Date(data.created).getTime() : Date.now(),
-    updateTime: data.updated ? new Date(data.updated).getTime() : Date.now()
+  const baseTitle = file.name.replace(/\.(md|markdown|txt)$/i, '')
+  if (parseFrontmatter) {
+    const { data, content } = matter(raw)
+    return {
+      title: data.title || baseTitle,
+      content,
+      folderId: data.folderId || folderId,
+      createTime: data.created ? new Date(data.created).getTime() : Date.now(),
+      updateTime: data.updated ? new Date(data.updated).getTime() : Date.now()
+    }
   }
-}
-
-// 导入 TXT 文件
-export async function importTxt(file, folderId = null) {
-  const content = await readFile(file)
-  const title = file.name.replace(/\.txt$/i, '')
-  return { title, content, folderId }
+  return { title: baseTitle, content: raw, folderId }
 }
 
 // 导入 JSON 备份文件
