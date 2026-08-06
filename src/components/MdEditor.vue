@@ -16,7 +16,6 @@ const isDark = inject('isDark', ref(false))
 
 let vditor = null
 const vditorRef = ref(null)
-let isBusy = false
 
 onMounted(async () => {
   await nextTick()
@@ -48,15 +47,13 @@ watch(isDark, (newVal) => {
 })
 
 watch(() => props.modelValue, (val) => {
-  if (!vditor || isBusy) return
+  if (!vditor) return
   const currentVal = vditor.getValue()
   if (val === currentVal) return
-
-  isBusy = true
+  // 直接同步到编辑器。去掉原来的 isBusy 提前 return：否则切到 B 时若 80ms 内刚在 A 敲过字，
+  // 对 B 的 setValue 会被丢弃，导致编辑器仍显示 A 的内容（表现为「切换串味」）。
+  // 回环防护由上方 val === currentVal 承担：setValue 触发的 input 回写的值与当前值相等即不再处理。
   vditor.setValue(val ?? '')
-  setTimeout(() => {
-    isBusy = false
-  }, 80)
 })
 
 defineExpose({

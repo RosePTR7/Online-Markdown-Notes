@@ -6,12 +6,13 @@
 ## 目录结构
 - `index.html` / `vite.config.js` / `uno.config.js`：入口、Vite 配置（vue + UnoCSS 插件）、base 路径。
 - `src/main.js`：加载 UnoCSS、Vditor、highlight.js（亮/暗）样式，挂载 App。
-- `src/App.vue`：根组件。加载数据（loadNotes/loadFolders/loadAiConfig）、侧边栏宽度拖拽、主题（light/dark/system，localStorage 持久化 + 跟随系统）、**内容防抖自动保存（2s）**、**每笔记撤销/重做历史栈（最多50步，saveHistoryMap）**、beforeunload 强存。
+- `src/App.vue`：根组件。加载数据（loadNotes/loadFolders/loadAiConfig）、侧边栏宽度拖拽、主题（light/dark/system，localStorage 持久化 + 跟随系统）、**按 noteId 隔离的内容后台防抖自动保存（2s，useSaveManager，切换笔记不打断旧笔记计时器、旧笔记后台继续落盘）**、**每笔记撤销/重做历史栈（最多50步，saveHistoryMap）**、beforeunload/onBeforeUnmount flushAll 落盘全部脏笔记。
 - `src/stores/`：四个模块级单例（非 Pinia）：
   - `useNoteStore`：笔记列表/打开标签/激活笔记、CRUD、AI 配置、本地笔记内存占位+写盘（addLocalNoteDirectly/finalizeLocalNote）。
   - `useFolderStore`：文件夹树 CRUD、拖拽移动（moveFolder 支持 inside/before/after、防环）、展开状态本地持久化。
   - `useModalStore`：全局 confirm/prompt 模态框 + toast。
   - `useLocalModeStore`：本地模式核心（mode online/local、folderHandle、目录读写删、缓存 folderCache、renameDirectory 用复制+删除实现）。
+  - `useSaveManager`：保存调度器（非 Pinia 单例）。`Map<noteId,{content,timer,saving}>`；`scheduleSave/flushNote/flushAll/removePending`；`initSaveManager({persist, afterSave})` 注入落盘与落盘后回调。每笔记独立防抖计时 + `saving` 单飞。
 - `src/utils/`：
   - `db.js`：Dexie 定义，notes(含 folderId 索引)、folders、aiConfig。version2 加文件夹。
   - `aiApi.js`：polishMarkdown —— 调 OpenAI 兼容 `/chat/completions` 润色。
@@ -29,6 +30,7 @@
 ## 关键设计点 / 坑
 - 编辑器内容双向同步：App 持有 editorContent，EditorArea 通过 `update:modelValue` 与 MdEditor 的 `setContent` 同步；撤销/重做直接操作 Vditor setValue。
 - 本地模式写盘是「内存占位(isTemp)→异步 writeFile→finalizeLocalNote」两阶段，避免 UI 卡顿。
-- 防抖保存 2s；切换笔记/关闭页面 flushSave 强存。
+- **保存机制（useSaveManager）**：编辑触发 `scheduleSave(noteId, content)` → 按 noteId 独立防抖 2s 后 `persistNote`。`persistNote`：本地笔记重建 frontmatter 走 `writeFile` 落盘（**本地编辑内容必须显式落盘，否则只存内存**）；在线走 `updateNote`。切换笔记**不 flush** 旧笔记，旧笔记计时器后台继续；`closeTab`/`beforeunload`/`onBeforeUnmount` 才 flush。**`updateNoteContent`/`updateNote`/`persistNote` 必须原地改属性，绝不能 `noteList.value[idx]={...}` 替换元素**——否则 `currentNote` 计算属性引用变化，每键触发「切换笔记」watch（重置 originContent/isUnsaved、关闭查找面板）。
+- **MdEditor 同步坑**：`watch(modelValue)` 只保留 `val===currentVal` 防回环，**不要加 `isBusy` 提前 return**——否则切到站 B 时若 80ms 内刚在 A 敲过字，对 B 的 setValue 会被丢弃，编辑器仍显示 A 内容（显示串味）。
 - 搜索、未分类、文件夹树均排除 `isLocal`（本地笔记）标记。
 - 部署产物在 `dist/`，public 放 favicon/icons svg。

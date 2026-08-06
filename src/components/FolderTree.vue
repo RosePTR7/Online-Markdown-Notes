@@ -189,12 +189,6 @@ const openFileMenu = (file, e) => {
   openContextMenu({ type: 'file', target: { name: file.name, dirPath: '' }, x: e.clientX, y: e.clientY })
 }
 
-// 扫描指定目录
-async function scanDirectory(relativePath = '') {
-  if (!hasFolder()) return []
-  return await listDirectoryContents(relativePath)
-}
-
 // 增量合并：以磁盘最新列表(newList)为基础，匹配项保留已展开文件夹的 contents（克隆为全新数组，
 // 避免复用旧引用导致后续就地修改无法触发响应式），磁盘上已消失的项（删除/改名）一律丢弃。
 function mergeItems(oldList, newList) {
@@ -219,7 +213,7 @@ async function refreshScan(deep = false) {
   scanning = true
   try {
     invalidateCache('') // 根目录一定从磁盘重读，避免读到旧缓存
-    const list = await scanDirectory()
+    const list = await listDirectoryContents('')
     rootItems.value = mergeItems(rootItems.value, list)
     if (deep) {
       for (const dir of [...loadedDirs.value]) {
@@ -308,7 +302,6 @@ const affectedDirOf = (components) => {
 
 // 防抖：一次"保存"常触发多条记录，合并成一次刷新，避免连刷/闪烁
 const scheduleFsRefresh = (records) => {
-  console.log(records)
   if (records && records.length) pendingFsRecords.push(...records)
   if (fsChangeTimer) clearTimeout(fsChangeTimer)
   fsChangeTimer = setTimeout(() => {
@@ -603,14 +596,6 @@ const renameLocalNote = async () => {
     noteStore.updateLocalNoteLocation(name, dirPath, newName, dirPath)
     // 确定性：直接在内存树中改名，侧边栏立即反映（不依赖 disk 重读时序，杜绝旧文件残留回退）
     renameTreeItem(dirPath, name, newName)
-    // 磁盘重读做对账（观察器也会触发）；仅当 disk 确实含新名时才覆盖，避免旧文件未删干净时把新名覆盖回去
-    invalidateCache(dirPath)
-    const contents = await listDirectoryContents(dirPath)
-    console.log('[renameLocalNote] disk=', contents.map(c => c.name), 'oldStill=', contents.some(c => c.name === name), 'newHas=', contents.some(c => c.name === newName))
-    if (contents.some(c => c.name === newName)) {
-      if (dirPath) setNodeContents(dirPath, contents)
-      else rootItems.value = mergeItems(rootItems.value, contents)
-    }
   } catch (err) {
     console.error('重命名笔记失败:', err)
     modalStore.showToast('重命名失败: ' + err.message, 'error')

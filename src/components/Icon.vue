@@ -67,6 +67,11 @@ const ICONS = {
     viewBox: '0 0 24 24', mode: 'stroke',
     paths: [{ d: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' }]
   },
+  // 导入：文件拖入箭头（向上进入托盘）
+  import: {
+    viewBox: '0 0 24 24', mode: 'stroke',
+    paths: [{ d: 'M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2' }]
+  },
   // —— 20x20 填充风格 ——
   doc: {
     viewBox: '0 0 20 20', mode: 'fill',

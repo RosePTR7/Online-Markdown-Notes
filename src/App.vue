@@ -33,15 +33,17 @@
 import { ref, watch, onMounted, onBeforeUnmount, provide } from 'vue'
 import { useNoteStore } from './stores/useNoteStore'
 import { useFolderStore } from './stores/useFolderStore'
+import { useSaveManager } from './stores/useSaveManager'
 import Sidebar from './components/Sidebar.vue'
 import EditorArea from './components/EditorArea.vue'
 import Modal from './components/Modal.vue'
 
 const noteStore = useNoteStore()
 const folderStore = useFolderStore()
+const saveManager = useSaveManager()
 const {
   aiConfig, currentNote,
-  loadNotes, loadAiConfig, updateNote
+  loadNotes, loadAiConfig
 } = noteStore
 const { loadFolders } = folderStore
 
@@ -75,8 +77,7 @@ const stopResize = () => {
   document.removeEventListener('mouseup', stopResize)
 }
 
-let saveTimer = null
-const DEBOUNCE_DELAY = 2000
+// 防抖时长由保存调度器（useSaveManager）统一管理；这里仅保留「当前激活笔记的原值」与未保存标记
 let originContent = ''
 const isUnsaved = ref(false)
 
@@ -125,8 +126,8 @@ const handleUndo = () => {
   noteHistory.currentIndex--
   const prevContent = noteHistory.history[noteHistory.currentIndex]
   editorContent.value = prevContent
-  originContent = prevContent
-  isUnsaved.value = false
+  // 撤销产生一次改动：标记未保存即可，editorContent 变化已由下方 watch 走「按笔记独立的后台保存」
+  isUnsaved.value = true
   // 更新编辑器
   editorAreaRef.value?.setContent(prevContent)
 }
@@ -141,34 +142,27 @@ const handleRedo = () => {
   noteHistory.currentIndex++
   const nextContent = noteHistory.history[noteHistory.currentIndex]
   editorContent.value = nextContent
-  originContent = nextContent
-  isUnsaved.value = false
+  isUnsaved.value = true
   // 更新编辑器
   editorAreaRef.value?.setContent(nextContent)
 }
 
-// 抽取独立保存逻辑
-const runSaveLogic = () => {
-  if (!currentNote.value) return
-  updateNote(currentNote.value.id, { content: editorContent.value })
-  originContent = editorContent.value
-  isUnsaved.value = false
-  // 记录保存点
-  pushSavePoint(currentNote.value.id, editorContent.value)
-}
-
-// 切换笔记/关闭页面触发强制保存
-const flushSave = () => {
-  if (saveTimer) {
-    runSaveLogic()
-    clearTimeout(saveTimer)
-    saveTimer = null
-  } else {
-    if (isUnsaved.value) {
-      runSaveLogic()
+// 保存调度器初始化：注入真正的落盘函数与「落盘后」回调。
+// - persist：调用 store.persistNote（本地写磁盘 / 在线写 Dexie），按 noteId 隔离。
+// - afterSave：落盘成功后记录历史保存点；若是当前激活笔记，则刷新 originContent / 未保存标记。
+// 这样「保存 + 计时器」从 App 抽离成可调用单元，且每篇笔记独立、切换不互相取消。
+saveManager.initSaveManager({
+  persist: (id, content) => noteStore.persistNote(id, content),
+  afterSave: (id, content) => {
+    pushSavePoint(id, content)
+    if (id === currentNote.value?.id) {
+      originContent = content
+      isUnsaved.value = false
     }
   }
-}
+})
+
+const handleBeforeUnload = () => { saveManager.flushAll() }
 
 onMounted(async () => {
   try {
@@ -178,12 +172,14 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-  window.addEventListener('beforeunload', flushSave)
+  // beforeunload：尽力把所有脏笔记落盘（异步写盘，浏览器不保证 await，但有总比没有好）
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 onBeforeUnmount(() => {
-  flushSave()
-  window.removeEventListener('beforeunload', flushSave)
+  // 卸载时同样尽力落盘全部脏笔记
+  saveManager.flushAll()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   mediaQuery.removeEventListener('change', handleSystemThemeChange)
 })
 
@@ -232,7 +228,8 @@ provide('isDark', isDark)
 
 // 切换笔记
 watch(currentNote, (note) => {
-  flushSave()
+  // 注意：此处不再 flush 旧笔记。按修复方案，旧笔记的预保存计时器在后台继续，
+  // 切走不打断它——这正是根治「切换串味」的关键（每笔记独立、互不取消）。
   // 关闭查找/替换面板
   editorAreaRef.value?.closeFindPanel()
   if (note) {
@@ -248,19 +245,22 @@ watch(currentNote, (note) => {
   }
 })
 
-// 编辑器输入监听
+// 编辑器输入监听：内容变化即把「当前笔记 + 最新内容」交给按 noteId 隔离的保存调度器。
+// 调度器内部为每篇笔记独立防抖计时，切换笔记只会写入对应 noteId 的条目，互不串味。
 watch(editorContent, (newVal) => {
-  clearTimeout(saveTimer)
   if (!currentNote.value) return
 
   if (newVal !== originContent) {
     isUnsaved.value = true
-    saveTimer = setTimeout(() => {
-      runSaveLogic()
-      saveTimer = null
-    }, DEBOUNCE_DELAY)
+    // 即时把内存中的 note.content 保持为最新（不写盘），避免切回时显示陈旧内容；
+    // 真正持久化交给 scheduleSave（按 noteId 独立的防抖/后台写盘）。
+    noteStore.updateNoteContent(currentNote.value.id, newVal)
+    // 关键：用编辑发生时的笔记 id 建独立待保存，计时器在后台继续，切走也不取消
+    saveManager.scheduleSave(currentNote.value.id, newVal)
   } else {
+    // 内容改回原值：取消该笔记的待保存（避免无谓写盘），并标记已保存
     isUnsaved.value = false
+    saveManager.removePending(currentNote.value.id)
   }
 })
 </script>

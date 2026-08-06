@@ -1,6 +1,7 @@
 <template>
   <div
     v-if="visible"
+    ref="panelEl"
     class="fixed z-50 rounded-lg shadow-lg transition-colors duration-300"
     :class="[panelClass, isDark ? 'bg-slate-800 border border-slate-600' : 'bg-white border border-slate-300']"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
@@ -22,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount, inject } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount, inject } from 'vue'
 
 const isDark = inject('isDark', ref(false))
 
@@ -48,8 +49,22 @@ const props = defineProps({
 const emit = defineEmits(['close', 'update:visible'])
 
 const position = ref({ ...props.defaultPosition })
+const panelEl = ref(null)
 let isDragging = false
 let dragOffset = { x: 0, y: 0 }
+
+// 将面板钳制在视口内，避免超出右/下边界导致显示不全（例如被拖到右侧后再次打开）。
+const clampToViewport = () => {
+  const el = panelEl.value
+  if (!el) return
+  const margin = 8
+  const pw = el.offsetWidth || 0
+  const ph = el.offsetHeight || 0
+  const maxX = Math.max(margin, window.innerWidth - pw - margin)
+  const maxY = Math.max(margin, window.innerHeight - ph - margin)
+  position.value.x = Math.min(Math.max(position.value.x, margin), maxX)
+  position.value.y = Math.min(Math.max(position.value.y, margin), maxY)
+}
 
 const startDrag = (e) => {
   isDragging = true
@@ -64,6 +79,7 @@ const handleDrag = (e) => {
   if (!isDragging) return
   position.value.x = e.clientX - dragOffset.x
   position.value.y = e.clientY - dragOffset.y
+  clampToViewport()
 }
 
 const stopDrag = () => {
@@ -71,6 +87,16 @@ const stopDrag = () => {
   document.removeEventListener('mousemove', handleDrag)
   document.removeEventListener('mouseup', stopDrag)
 }
+
+// 面板显示时，重新锚定到传入的 defaultPosition（如 AI 配置按按钮坐标定位），
+// 等 DOM 挂载后测量并钳制在视口内，避免溢出右/下边界。
+watch(() => props.visible, async (v) => {
+  if (v) {
+    position.value = { ...props.defaultPosition }
+    await nextTick()
+    clampToViewport()
+  }
+})
 
 const close = () => {
   emit('close')
@@ -86,6 +112,7 @@ onBeforeUnmount(() => {
 // 暴露重置位置方法
 const resetPosition = () => {
   position.value = { ...props.defaultPosition }
+  clampToViewport()
 }
 
 defineExpose({ resetPosition })

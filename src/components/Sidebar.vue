@@ -1,5 +1,12 @@
 <template>
-  <div class="w-full flex flex-col shrink-0 relative h-full overflow-hidden transition-colors duration-300" :class="isDark ? 'bg-slate-800' : 'bg-white'">
+  <div
+    class="w-full flex flex-col shrink-0 relative h-full overflow-hidden transition-colors duration-300"
+    :class="isDark ? 'bg-slate-800' : 'bg-white'"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
     <!-- 标题 -->
     <div class="px-4 py-3 border-b transition-colors duration-300 flex justify-center items-center" :class="isDark ? 'border-slate-700' : 'border-slate-200'">
       <span class="font-bold text-xl transition-colors duration-300" :class="isDark ? 'text-slate-50' : 'text-slate-800'">在线Markdown笔记</span>
@@ -113,6 +120,17 @@
       >
         更改路径
       </button>
+    </div>
+
+    <!-- 拖拽导入高亮遮罩：从浏览器外拖入文件时显示，提示可在此处导入 -->
+    <div
+      v-if="isDragOver"
+      class="absolute inset-2 z-50 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center pointer-events-none select-none transition-colors duration-200"
+      :class="isDark ? 'border-indigo-400 bg-slate-900/60' : 'border-indigo-500 bg-white/75'"
+    >
+      <Icon name="import" class="w-9 h-9 mb-2" :class="isDark ? 'text-indigo-300' : 'text-indigo-500'" />
+      <div class="text-sm font-medium" :class="isDark ? 'text-slate-200' : 'text-slate-700'">拖放文件到此处导入</div>
+      <div class="text-xs mt-1" :class="isDark ? 'text-slate-400' : 'text-slate-500'">支持 .md / .markdown / .txt / .json</div>
     </div>
   </div>
 </template>
@@ -334,6 +352,38 @@ const changeLocalFolderPath = async () => {
     }
   } catch (err) {
     if (err.name !== 'AbortError') console.error('更改文件夹路径失败:', err)
+  }
+}
+
+// ==========拖拽导入（从浏览器外拖文件到侧边栏）==========
+// 用计数器避免拖到子元素时 dragleave/dragenter 反复触发导致高亮闪烁
+const dragCounter = ref(0)
+const isDragOver = computed(() => dragCounter.value > 0)
+
+const onDragEnter = (e) => {
+  e.preventDefault()
+  // 仅当拖入的是文件（而非网页内部元素）时才计数，避免干扰内部拖拽
+  if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+    dragCounter.value++
+  }
+}
+
+const onDragOver = (e) => {
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+}
+
+const onDragLeave = (e) => {
+  e.preventDefault()
+  dragCounter.value = Math.max(0, dragCounter.value - 1)
+}
+
+const onDrop = async (e) => {
+  e.preventDefault()
+  dragCounter.value = 0
+  const files = e.dataTransfer?.files
+  if (files && files.length) {
+    await noteStore.importFiles(files)
   }
 }
 

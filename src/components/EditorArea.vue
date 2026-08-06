@@ -7,7 +7,7 @@
         <!-- 文件/编辑/查看/AI配置 按钮组 - 圆角矩形包裹 -->
         <div class="flex items-center gap-1 rounded-xl px-2 py-1.5 transition-colors duration-300" :class="isDark ? 'bg-slate-700' : 'bg-slate-50'">
           <!-- 文件按钮 -->
-          <button ref="fileMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('file', fileMenuRef)">文件</button>
+          <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="(e) => togglePanel('file', e.currentTarget)">文件</button>
 
           <!-- 顶栏下拉菜单 & 导出子菜单 - 统一复用 ContextMenu -->
           <ContextMenu :visible="activePanel !== null" :x="dropdownX" :y="dropdownY" @close="activePanel = null">
@@ -40,11 +40,11 @@
             <MenuItem label="导出全部数据为 JSON" @click="exportAllJSON" />
           </ContextMenu>
           <!-- 编辑按钮 -->
-          <button ref="editMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('edit', editMenuRef)">编辑</button>
+          <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="(e) => togglePanel('edit', e.currentTarget)">编辑</button>
           <!-- 查看按钮 -->
-          <button ref="viewMenuRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="togglePanel('view', viewMenuRef)">查看</button>
+          <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="(e) => togglePanel('view', e.currentTarget)">查看</button>
           <!-- AI配置按钮 -->
-          <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="showSetting=true">AI配置</button>
+          <button ref="aiConfigRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="openAiConfig">AI配置</button>
         </div>
         <div class="flex-1"></div>
         
@@ -120,7 +120,7 @@
             v-model="findKeyword"
             type="text"
             placeholder="查找内容..."
-            class="flex-1 px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+            class="flex-1 box-border px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
             :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
             @keyup.enter="doFind"
             ref="findInputRef"
@@ -134,7 +134,7 @@
             v-model="replaceKeyword"
             type="text"
             placeholder="替换为..."
-            class="flex-1 px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
+            class="flex-1 box-border px-2 py-1 border rounded text-sm outline-none focus:border-indigo-400 transition-colors duration-300"
             :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
             @keyup.enter="doReplaceAll"
           />
@@ -166,7 +166,7 @@
       <div class="flex flex-col gap-3">
         <textarea
           v-model="polishedContent"
-          class="w-full h-64 px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 resize-none transition-colors duration-300"
+          class="w-full box-border h-64 px-3 py-2 border rounded-lg text-sm outline-none focus:border-indigo-400 resize-none transition-colors duration-300"
           :class="isDark ? 'bg-slate-600 border-slate-500 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'"
           placeholder="润色后的内容..."
         ></textarea>
@@ -189,20 +189,21 @@
       :visible="showSetting"
       title="AI接口配置"
       panel-class="w-96"
+      :default-position="aiConfigPos"
       @close="showSetting = false"
     >
       <div class="flex flex-col gap-3">
         <div>
           <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API BaseURL</label>
-          <input v-model="aiConfig.baseUrl" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
+          <input v-model="aiConfig.baseUrl" class="w-full box-border border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
         <div>
           <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">API Key</label>
-          <input v-model="aiConfig.apiKey" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
+          <input v-model="aiConfig.apiKey" class="w-full box-border border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200' : 'border-slate-300 bg-white'"/>
         </div>
         <div>
           <label class="block text-sm transition-colors duration-300" :class="isDark ? 'text-slate-300' : 'text-slate-700'">AI模型</label>
-          <input v-model="aiConfig.model" class="w-full border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'" placeholder="例如: qwen3.7-plus"/>
+          <input v-model="aiConfig.model" class="w-full box-border border p-2 mt-1 rounded-lg outline-none focus:border-indigo-400 transition-colors duration-300" :class="isDark ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400' : 'border-slate-300 bg-white'" placeholder="例如: qwen3.7-plus"/>
         </div>
         <div class="flex justify-end gap-2">
           <button class="px-3 py-1 rounded-lg transition-colors duration-300" :class="isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'" @click="showSetting=false">取消</button>
@@ -277,11 +278,8 @@ import {
   exportNoteAsFrontmatterMarkdown, 
   exportNoteAsHTML, 
   exportAllAsJSON, 
-  downloadFile,
-  importTextFile,
-  importJSON
+  downloadFile
 } from '../utils/importExport'
-import { noteTable, folderTable } from '../utils/db'
 
 const props = defineProps({
   modelValue: {
@@ -315,9 +313,6 @@ const doRedo = () => emit('redo')
 
 // ==========编辑/查看/文件面板==========
 const activePanel = ref(null) // 'edit' | 'view' | 'file' | null
-const editMenuRef = ref(null)
-const viewMenuRef = ref(null)
-const fileMenuRef = ref(null)
 const exportMenuItemRef = ref(null)
 const showSubMenu = ref(null) // 'export' | null
 const subMenuPosition = ref({ x: 0, y: 0 })
@@ -329,9 +324,12 @@ const togglePanel = (panel, btnRef) => {
     activePanel.value = null
     showSubMenu.value = null
   } else {
-    // 根据触发按钮位置计算下拉菜单位置
-    if (btnRef && btnRef.value) {
-      const rect = btnRef.value.getBoundingClientRect()
+    // btnRef 由模板事件 @click="(e) => togglePanel(panel, e.currentTarget)" 传入，
+    // 即被点击的按钮 DOM 元素本身，始终持有正确的 getBoundingClientRect，
+    // 据此在按钮正下方生成菜单，避免落到网页左上角 (0,0)。
+    const el = btnRef && btnRef.getBoundingClientRect ? btnRef : null
+    if (el) {
+      const rect = el.getBoundingClientRect()
       dropdownX.value = rect.left
       dropdownY.value = rect.bottom + 4
     }
@@ -356,7 +354,7 @@ const toggleSubMenu = (type) => {
 }
 
 // ==========导入功能==========
-// 直接弹出文件选择器，支持多种格式
+// 直接弹出文件选择器，支持多种格式（导入编排统一走 store.importFiles，与侧边栏拖拽共用）
 const doImport = () => {
   showSubMenu.value = null
   activePanel.value = null
@@ -365,39 +363,25 @@ const doImport = () => {
   // 支持所有可导入的文件类型
   input.accept = '.md,.markdown,.txt,.json'
   input.multiple = false
-  input.onchange = handleFileSelectAuto
+  input.onchange = (e) => noteStore.importFiles(e.target.files)
   input.click()
-}
-
-// 根据文件扩展名自动判断导入类型并处理
-const handleFileSelectAuto = async (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  
-  try {
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (ext === 'json') {
-      const data = await importJSON(file)
-      await handleJSONImport(data)
-    } else if (ext === 'txt') {
-      const noteData = await importTextFile(file)
-      await addNoteFromImport(noteData)
-    } else {
-      // .md / .markdown -> 尝试解析 frontmatter，失败则用纯 markdown
-      const noteData = await importTextFile(file, { parseFrontmatter: true })
-      await addNoteFromImport(noteData)
-    }
-    modalStore.showToast('导入成功', 'success')
-  } catch (err) {
-    console.error('Import error:', err)
-    modalStore.showToast('导入失败: ' + err.message, 'error')
-  }
 }
 
 // 菜单的点击外部关闭由 ContextMenu 组件的遮罩层处理，无需额外监听
 
 // AI配置弹窗
 const showSetting = ref(false)
+// AI配置面板锚定在按钮正下方：打开时按按钮坐标算位置，避免固定 (100,80) 在窄屏/缩放下溢出右边界
+const aiConfigRef = ref(null)
+const aiConfigPos = ref({ x: 100, y: 80 })
+const openAiConfig = () => {
+  const el = aiConfigRef.value
+  if (el) {
+    const rect = el.getBoundingClientRect()
+    aiConfigPos.value = { x: rect.left, y: rect.bottom + 4 }
+  }
+  showSetting.value = true
+}
 
 const saveAiConfig = () => {
   noteStore.saveAiConfig()
@@ -596,7 +580,7 @@ defineExpose({ handleFind, handleReplace, openFindReplacePanel, setContent, clos
 const noteStore = useNoteStore()
 const {
   noteList, openTabs, activeId, aiConfig, currentNote,
-  updateNote, openNote, closeTab, addNote, importNote
+  updateNote, openNote, closeTab
 } = noteStore
 
 // ==========标签页拖拽排序==========
@@ -708,7 +692,6 @@ const polishedContent = ref('')
 const polishLoading = ref(false)
 
 const handlePolish = async () => {
-  console.log('handlePolish called', { currentNote: currentNote.value?.id, aiConfig: aiConfig.value })
   if (!currentNote.value) {
     showMessagePanel('提示', '请先选择一条笔记再执行润色')
     return
@@ -721,7 +704,6 @@ const handlePolish = async () => {
   polishLoading.value = true
   try {
     const result = await polishMarkdown(currentNote.value.content, aiConfig.value.baseUrl, aiConfig.value.apiKey, aiConfig.value.model)
-    console.log('Polish result:', result)
     polishedContent.value = result
     polishPanelVisible.value = true
   } catch (err) {
@@ -742,53 +724,15 @@ const discardPolish = () => {
 // 应用润色结果（覆盖原内容）
 const applyPolish = () => {
   const result = polishedContent.value
-  // 通过 emit 更新内容
+  // 只需通过 emit 更新内容：editorContent 变化会触发按笔记独立的后台保存（含本地落盘），
+  // 不必再直接 updateNote（那会让本地笔记写 Dexie 而漏掉磁盘 frontmatter）。
   emit('update:modelValue', result)
-  // 保存笔记
-  updateNote(currentNote.value.id, { content: result })
   // 关闭悬浮窗
   discardPolish()
 }
 
 // ==========导入导出功能==========
 const modalStore = useModalStore()
-
-// 从导入数据添加笔记（复用 store 的 addNote，不再手搓 Dexie 写库）
-const addNoteFromImport = async (data) => {
-  await addNote(data.folderId || null, data.title || '导入的笔记', data.content || '')
-}
-
-// 处理 JSON 备份导入
-const handleJSONImport = async (data) => {
-  const confirmed = await modalStore.confirm({
-    title: '导入备份',
-    message: `确定要导入 ${data.notes?.length || 0} 条笔记和 ${data.folders?.length || 0} 个文件夹吗？`,
-    confirmText: '导入',
-    confirmDanger: false
-  })
-  
-  if (!confirmed) return
-  
-  // 导入文件夹
-  if (data.folders && Array.isArray(data.folders)) {
-    for (const folder of data.folders) {
-      const existing = await folderTable.get(folder.id)
-      if (!existing) {
-        await folderTable.add(folder)
-      }
-    }
-    // 重新加载文件夹
-    window.location.reload()
-  }
-  
-  // 导入笔记（复用 store 的 importNote，保留原始 id；不再手搓 Dexie 写库）
-  if (data.notes && Array.isArray(data.notes)) {
-    for (const note of data.notes) {
-      const existing = await noteTable.get(note.id)
-      if (!existing) await importNote(note)
-    }
-  }
-}
 
 // 导出当前笔记
 const exportCurrentNote = (type) => {

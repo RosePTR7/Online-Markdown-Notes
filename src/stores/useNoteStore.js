@@ -1,9 +1,11 @@
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
-import { noteTable, aiConfigTable } from '../utils/db'
+import { noteTable, folderTable, aiConfigTable } from '../utils/db'
 import { useLocalModeStore } from './useLocalModeStore'
 import { useModalStore } from './useModalStore'
 import { buildLocalNoteFile } from '../utils/localFile'
+import { useSaveManager } from './useSaveManager'
+import { importTextFile, importJSON } from '../utils/importExport'
 
 // ==================== 运行时状态（模块级单例） ====================
 const noteList = ref([])
@@ -68,6 +70,87 @@ const importNote = async (note) => {
   return note
 }
 
+// ==================== 文件导入（菜单选择 / 拖拽 统一入口） ====================
+// 支持的导入格式：拖拽或文件选择器都按扩展名校验，不支持则弹一次提示（样式同重命名弹窗）
+const SUPPORTED_IMPORT_EXT = ['md', 'markdown', 'txt', 'json']
+
+// 从导入数据添加单条笔记（复用 addNote，不再手搓 Dexie 写库）
+const addNoteFromData = async (data) => {
+  await addNote(data.folderId || null, data.title || '导入的笔记', data.content || '')
+}
+
+// 处理 JSON 备份导入（含确认弹窗与文件夹重建）
+const importJSONData = async (data) => {
+  const confirmed = await useModalStore().confirm({
+    title: '导入备份',
+    message: `确定要导入 ${data.notes?.length || 0} 条笔记和 ${data.folders?.length || 0} 个文件夹吗？`,
+    confirmText: '导入',
+    confirmDanger: false
+  })
+  if (!confirmed) return
+  if (data.folders && Array.isArray(data.folders)) {
+    for (const folder of data.folders) {
+      const existing = await folderTable.get(folder.id)
+      if (!existing) await folderTable.add(folder)
+    }
+    window.location.reload()
+  }
+  if (data.notes && Array.isArray(data.notes)) {
+    for (const note of data.notes) {
+      const existing = await noteTable.get(note.id)
+      if (!existing) await importNote(note)
+    }
+  }
+}
+
+// 导入单个文件（按扩展名分派）
+const importSingleFile = async (file) => {
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  if (ext === 'json') {
+    const data = await importJSON(file)
+    await importJSONData(data)
+  } else if (ext === 'txt') {
+    const noteData = await importTextFile(file)
+    await addNoteFromData(noteData)
+  } else {
+    // .md / .markdown -> 尝试解析 frontmatter
+    const noteData = await importTextFile(file, { parseFrontmatter: true })
+    await addNoteFromData(noteData)
+  }
+}
+
+// 统一导入入口：菜单文件选择器与侧边栏拖拽都调用它。
+// 区分支持 / 不支持格式：支持的逐个导入；不支持的收集后弹一次提示（样式同重命名弹窗），不中断已支持的导入。
+const importFiles = async (fileList) => {
+  const files = Array.from(fileList || [])
+  if (files.length === 0) return
+  const supported = []
+  const unsupported = []
+  for (const f of files) {
+    const ext = f.name.split('.').pop()?.toLowerCase()
+    if (ext && SUPPORTED_IMPORT_EXT.includes(ext)) supported.push(f)
+    else unsupported.push(f.name)
+  }
+  for (const f of supported) {
+    try {
+      await importSingleFile(f)
+    } catch (err) {
+      console.error('导入失败:', err)
+      useModalStore().showToast('导入失败: ' + err.message, 'error')
+    }
+  }
+  if (unsupported.length > 0) {
+    const list = unsupported.join('、')
+    await useModalStore().confirm({
+      title: '无法导入',
+      message: `不支持该格式的文件（${list}），仅支持 .md、.markdown、.txt、.json 格式。`,
+      confirmText: '我知道了'
+    })
+  } else {
+    useModalStore().showToast('导入成功', 'success')
+  }
+}
+
 const delNote = async (id) => {
   await noteTable.delete(id)
   noteList.value = noteList.value.filter(i => i.id !== id)
@@ -87,10 +170,45 @@ const removeLocalNote = (filename, dirPath) => {
 const updateNote = (id, payload) => {
   const idx = noteList.value.findIndex(n => n.id === id)
   if (idx > -1) {
-    const updated = { ...noteList.value[idx], ...payload, updateTime: Date.now() }
-    noteTable.put(updated)
-    noteList.value[idx] = updated
+    // 原地修改属性（不替换数组元素），避免 currentNote 计算属性因引用变化而每键触发切换 watch
+    const note = noteList.value[idx]
+    Object.assign(note, payload, { updateTime: Date.now() })
+    noteTable.put({ ...note })
   }
+}
+
+// 统一落盘入口（被保存调度器调用）：
+//   本地笔记需重建 frontmatter 后写回 .md 文件（此前 updateNote 只写内存/Dexie，本地编辑内容从未落盘）；
+//   在线笔记走原 updateNote。
+// 这样无论是防抖计时器、切换后台保存、还是 flush，本地笔记的内容都能真正写到磁盘。
+const persistNote = async (id, content) => {
+  const idx = noteList.value.findIndex(n => n.id === id)
+  if (idx === -1) return
+  const note = noteList.value[idx]
+  if (note.isLocal) {
+    try {
+      const local = useLocalModeStore()
+      const { filename, fileContent } = buildLocalNoteFile(note.title, content)
+      await local.writeFile(note.dirPath || '', filename, fileContent)
+      local.invalidateCache(note.dirPath || '')
+      // 原地同步内存笔记内容（不重复写 Dexie，本地笔记只存内存），避免替换元素触发 currentNote 重算
+      note.content = content
+      note.updateTime = Date.now()
+    } catch (err) {
+      console.error('本地笔记落盘失败:', err)
+      useModalStore().showToast('保存失败: ' + err.message, 'error')
+    }
+  } else {
+    updateNote(id, { content })
+  }
+}
+
+// 仅更新内存中的笔记内容（不写 Dexie / 不写磁盘）：编辑器每次输入即时保持 note.content 为最新，
+// 避免「切走再在 2s 防抖窗口内切回」时显示陈旧内容。真正的持久化仍交由 persistNote 防抖完成。
+const updateNoteContent = (id, content) => {
+  const idx = noteList.value.findIndex(n => n.id === id)
+  // 原地修改属性（不替换元素），否则 currentNote 计算属性引用变化会每键触发「切换笔记」watch
+  if (idx > -1) noteList.value[idx].content = content
 }
 
 const moveNoteToFolder = (noteId, folderId) => {
@@ -110,6 +228,8 @@ const openNote = (id) => {
 }
 
 const closeTab = (id) => {
+  // 关闭标签前尽力把未落盘的改动写盘（2s 防抖内的编辑也保住），fire-and-forget
+  useSaveManager().flushNote(id)
   openTabs.value = openTabs.value.filter(t => t.id !== id)
   if (activeId.value === id) activeId.value = openTabs.value.at(-1)?.id || ''
 }
@@ -225,9 +345,10 @@ const instance = {
   noteList, openTabs, activeId, aiConfig, currentNote, getUnsortedNotes,
   loadNotes, loadAiConfig, saveAiConfig,
   addNote, delNote, updateNote, openNote, closeTab, moveNoteToFolder, removeLocalNote,
+  persistNote, updateNoteContent,
   addLocalNoteDirectly, createLocalNote, finalizeLocalNote,
   updateLocalNoteLocation, updateLocalNotesDirPath,
-  createNote, importNote
+  createNote, importNote, importFiles, SUPPORTED_IMPORT_EXT
 }
 
 export function useNoteStore() { return instance }
