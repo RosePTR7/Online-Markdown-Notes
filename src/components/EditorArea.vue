@@ -38,6 +38,7 @@
             <MenuItem label="导出当前笔记为 HTML" @click="exportCurrentNote('html')" />
             <div class="h-px mx-2 my-1" :class="isDark ? 'bg-slate-600' : 'bg-slate-200'"></div>
             <MenuItem label="导出全部数据为 JSON" @click="exportAllJSON" />
+            <MenuItem label="导出全部为 ZIP" @click="exportAllZip" />
           </ContextMenu>
           <!-- 编辑按钮 -->
           <button class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="(e) => togglePanel('edit', e.currentTarget)">编辑</button>
@@ -278,7 +279,9 @@ import {
   exportNoteAsFrontmatterMarkdown, 
   exportNoteAsHTML, 
   exportAllAsJSON, 
-  downloadFile
+  exportAllAsZip,
+  downloadFile,
+  downloadBlob
 } from '../utils/importExport'
 
 const props = defineProps({
@@ -780,6 +783,21 @@ const exportAllJSON = async () => {
     downloadFile(content, `notes-backup-${date}.json`, 'application/json')
   } catch (err) {
     console.error('Export error:', err)
+    modalStore.showToast('导出失败: ' + err.message, 'error')
+  }
+}
+
+// 导出全部为 ZIP（保留文件夹层级 + backup.json）
+const exportAllZip = async () => {
+  showSubMenu.value = null
+  activePanel.value = null
+  try {
+    const blob = await exportAllAsZip()
+    const date = new Date().toISOString().slice(0, 10)
+    downloadBlob(blob, `notes-backup-${date}.zip`)
+    modalStore.showToast('导出成功', 'success')
+  } catch (err) {
+    console.error('ZIP 导出失败:', err)
     modalStore.showToast('导出失败: ' + err.message, 'error')
   }
 }

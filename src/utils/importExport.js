@@ -1,6 +1,7 @@
 import matter from 'gray-matter'
 import { marked } from 'marked'
 import { noteTable, folderTable } from './db'
+import { buildZip } from './zip'
 
 // ==================== 导出功能 ====================
 
@@ -64,6 +65,72 @@ export function downloadFile(content, filename, mimeType) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// 触发 Blob 下载（用于 ZIP 等二进制内容）
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ==================== 整库导出（ZIP，保留目录结构） ====================
+// 仅导出「在线 + 未软删除」的笔记/文件夹（与回收站、本地模式范围一致）。
+// ZIP 内：每个笔记按其所属文件夹层级导出为 <标题>.md（带 Frontmatter）；
+// 另含 backup.json 用于完整精确恢复（含时间戳、folderId 等）。
+export async function exportAllAsZip() {
+  const notes = await noteTable.toArray()
+  const folders = await folderTable.toArray()
+  const liveNotes = notes.filter(n => !n.deletedAt && !n.isLocal)
+  const liveFolders = folders.filter(f => !f.deletedAt)
+
+  // folderId -> 目录路径（按 parentId 链向上回溯）
+  const folderPathOf = (folderId) => {
+    const parts = []
+    const seen = new Set()
+    let cur = liveFolders.find(f => f.id === folderId)
+    while (cur && !seen.has(cur.id)) {
+      parts.unshift(cur.name)
+      seen.add(cur.id)
+      cur = cur.parentId ? liveFolders.find(f => f.id === cur.parentId) : null
+    }
+    return parts
+  }
+
+  const usedNames = new Set()
+  const uniqueName = (base, ext) => {
+    let name = `${base}.${ext}`
+    if (!usedNames.has(name)) { usedNames.add(name); return name }
+    let i = 1
+    let candidate
+    do { candidate = `${base} (${i}).${ext}`; i++ } while (usedNames.has(candidate))
+    usedNames.add(candidate)
+    return candidate
+  }
+
+  const safeName = (s) => (s || '无标题笔记').replace(/[\/\\:*?"<>|]/g, '_')
+
+  const files = []
+  for (const note of liveNotes) {
+    const content = exportNoteAsFrontmatterMarkdown(note)
+    let dir = ''
+    if (note.folderId) {
+      const p = folderPathOf(note.folderId)
+      if (p.length) dir = p.join('/') + '/'
+    }
+    files.push({ name: uniqueName(dir + safeName(note.title), 'md'), content })
+  }
+
+  // 完整备份（JSON），便于精确恢复
+  files.push({
+    name: 'backup.json',
+    content: JSON.stringify({ notes: liveNotes, folders: liveFolders, exportTime: Date.now() }, null, 2)
+  })
+
+  return buildZip(files)
 }
 
 // ==================== 导入功能 ====================

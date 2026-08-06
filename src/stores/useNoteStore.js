@@ -23,10 +23,16 @@ const getUnsortedNotes = computed(() => noteList.value.filter(n => n.folderId ==
 // ==================== Load ====================
 const loadNotes = async () => {
   const list = await noteTable.toArray()
-  const migrated = list.map(n => ({ ...n, folderId: n.folderId ?? null }))
+  const migrated = []
+  const toUpdate = []
+  for (const n of list) {
+    if (n.deletedAt) continue // 跳过回收站（软删除）中的笔记，避免重启后重新出现
+    const m = { ...n, folderId: n.folderId ?? null }
+    migrated.push(m)
+    if (n.folderId === undefined) toUpdate.push(m)
+  }
   noteList.value = migrated
-  const needsUpdate = migrated.some((m, i) => list[i].folderId === undefined)
-  if (needsUpdate) await noteTable.bulkPut(migrated)
+  if (toUpdate.length) await noteTable.bulkPut(toUpdate)
 }
 
 const loadAiConfig = async () => {
@@ -152,10 +158,62 @@ const importFiles = async (fileList) => {
 }
 
 const delNote = async (id) => {
-  await noteTable.delete(id)
+  const note = noteList.value.find(n => n.id === id)
+  if (!note) return
+  if (note.isLocal) {
+    // 本地笔记不在 Dexie：仅从内存/标签移除（磁盘删除由 removeLocalNote / deleteLocalFolder 负责）
+    noteList.value = noteList.value.filter(i => i.id !== id)
+    openTabs.value = openTabs.value.filter(t => t.id !== id)
+    if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
+    return
+  }
+  // 在线笔记软删除：置 deletedAt 并移出 noteList（数据仍留 Dexie，可在回收站恢复/彻底删除）
+  await noteTable.update(id, { deletedAt: Date.now() })
   noteList.value = noteList.value.filter(i => i.id !== id)
   openTabs.value = openTabs.value.filter(t => t.id !== id)
   if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
+}
+
+// ==================== 回收站（在线笔记软删除的恢复 / 彻底删除） ====================
+// 已软删除的笔记不再出现在 noteList，但保留于 Dexie（deletedAt>0），供回收站查询。
+const getDeletedNotes = async () => {
+  const list = await noteTable.where('deletedAt').above(0).toArray()
+  return list.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))
+}
+
+const restoreNote = async (id) => {
+  await noteTable.update(id, { deletedAt: 0 })
+  const note = await noteTable.get(id)
+  if (note && !noteList.value.some(n => n.id === id)) {
+    noteList.value.push(note) // 重新进入在线笔记列表（currentNote 等计算属性自动生效）
+  }
+}
+
+const purgeNote = async (id) => {
+  await noteTable.delete(id)
+  openTabs.value = openTabs.value.filter(t => t.id !== id)
+  if (activeId.value === id) activeId.value = openTabs.value[0]?.id || ''
+}
+
+const emptyRecycleBin = async () => {
+  const deleted = await noteTable.where('deletedAt').above(0).toArray()
+  const ids = deleted.map(n => n.id)
+  if (ids.length) {
+    await noteTable.where('deletedAt').above(0).delete()
+    openTabs.value = openTabs.value.filter(t => !ids.includes(t.id))
+  }
+}
+
+// 文件夹被软删除时，把该文件夹（含子文件夹）下的在线笔记从内存列表移除，并清理其打开的标签
+const removeNotesFromListByFolder = (folderIds) => {
+  const set = new Set(folderIds)
+  const removedIds = noteList.value.filter(n => set.has(n.folderId)).map(n => n.id)
+  if (!removedIds.length) return
+  noteList.value = noteList.value.filter(n => !set.has(n.folderId))
+  openTabs.value = openTabs.value.filter(t => !removedIds.includes(t.id))
+  if (activeId.value && removedIds.includes(activeId.value)) {
+    activeId.value = openTabs.value[0]?.id || ''
+  }
 }
 
 // 本地笔记仅存于内存（不写 Dexie），删除磁盘文件后需同步清理内存与标签栏，避免已删笔记残留在标签栏
@@ -348,7 +406,9 @@ const instance = {
   persistNote, updateNoteContent,
   addLocalNoteDirectly, createLocalNote, finalizeLocalNote,
   updateLocalNoteLocation, updateLocalNotesDirPath,
-  createNote, importNote, importFiles, SUPPORTED_IMPORT_EXT
+  createNote, importNote, importFiles, SUPPORTED_IMPORT_EXT,
+  getDeletedNotes, restoreNote, purgeNote, emptyRecycleBin,
+  removeNotesFromListByFolder
 }
 
 export function useNoteStore() { return instance }

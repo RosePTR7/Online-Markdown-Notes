@@ -17,7 +17,7 @@
     <!-- 操作按钮 -->
     <div class="px-2 pt-2 pb-1 space-y-1">
       <button
-        class="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-base transition-colors duration-200 flex items-center justify-center gap-1"
+        class="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-base transition-colors duration-200 flex items-center justify-center gap-1 border"
         @click="handleCreateNote"
         :disabled="isCreating"
       >
@@ -26,12 +26,21 @@
         新建笔记
       </button>
       <button
-        class="w-full py-2 bg-amber-400 hover:bg-amber-500 text-white rounded-xl font-bold text-base transition-colors duration-200 flex items-center justify-center gap-1"
+        class="w-full py-2 bg-amber-400 hover:bg-amber-500 text-white rounded-xl font-bold text-base transition-colors duration-200 flex items-center justify-center gap-1 border"
         @click="handleCreateFolder"
         :disabled="isCreating"
       >
         <Icon name="add-folder" class="w-4 h-4" v-if="!isCreating" />
         新建文件夹
+      </button>
+      <button
+        v-if="localModeStore.mode.value === 'online'"
+        class="w-full py-2 rounded-xl font-semibold text-base transition-colors duration-200 flex items-center justify-center gap-1 border"
+        :class="isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 text-slate-600 hover:bg-slate-200'"
+        @click="showRecycleBin = true"
+      >
+        <Icon name="trash" class="w-4 h-4" />
+        回收站
       </button>
     </div>
 
@@ -132,6 +141,9 @@
       <div class="text-sm font-medium" :class="isDark ? 'text-slate-200' : 'text-slate-700'">拖放文件到此处导入</div>
       <div class="text-xs mt-1" :class="isDark ? 'text-slate-400' : 'text-slate-500'">支持 .md / .markdown / .txt / .json</div>
     </div>
+
+    <!-- 回收站覆盖层 -->
+    <RecycleBin :visible="showRecycleBin" @close="showRecycleBin = false" />
   </div>
 </template>
 
@@ -144,9 +156,13 @@ import { useModalStore } from '../stores/useModalStore'
 import { useLocalModeStore } from '../stores/useLocalModeStore'
 import FolderTree from './FolderTree.vue'
 import UnsortedNotes from './UnsortedNotes.vue'
+import RecycleBin from './RecycleBin.vue'
 import Icon from './Icon.vue'
 
 const isDark = inject('isDark', ref(false))
+
+// 回收站覆盖层开关
+const showRecycleBin = ref(false)
 
 const noteStore = useNoteStore()
 const folderStore = useFolderStore()

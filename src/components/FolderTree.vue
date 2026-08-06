@@ -27,6 +27,7 @@
           :is-local="true"
           :depth="0"
           @expand="onFolderExpand"
+          @open-note="emit('open-note', $event)"
         />
       </template>
 
@@ -527,7 +528,7 @@ const confirmDeleteFolder = async () => {
   const folderName = isLocal.value ? target.split('/').pop() : (findFolderById(target)?.name || '')
   const confirmed = await modalStore.confirm({
     title: '删除文件夹',
-    message: `确定删除文件夹 "${folderName}" 及其所有内容吗？此操作无法撤销。`,
+    message: `确定删除文件夹 "${folderName}" 及其所有内容吗？删除后可到「回收站」恢复。`,
     confirmText: '删除',
     confirmDanger: true
   })
@@ -561,7 +562,7 @@ const deleteNote = async () => {
   const targetId = menuTarget.value
   closeMenu()
   const confirmed = await modalStore.confirm({
-    title: '删除笔记', message: '确定删除这条笔记吗？此操作无法撤销。', confirmText: '删除', confirmDanger: true
+    title: '删除笔记', message: '确定删除这条笔记吗？删除后可到「回收站」恢复。', confirmText: '删除', confirmDanger: true
   })
   if (confirmed) delNote(targetId)
 }

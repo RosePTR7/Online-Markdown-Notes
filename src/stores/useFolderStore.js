@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
 import { folderTable, noteTable } from '../utils/db'
+import { useNoteStore } from './useNoteStore'
 
 // ==================== 运行时状态（模块级单例） ====================
 const folderList = ref([])
@@ -28,7 +29,8 @@ const saveExpandedState = () => {
 
 // ==================== 从 IndexedDB / localStorage 加载 ====================
 const loadFolders = async () => {
-  folderList.value = await folderTable.toArray()
+  const list = await folderTable.toArray()
+  folderList.value = list.filter(f => !f.deletedAt) // 过滤回收站（软删除）中的文件夹
   expandedFolders.value = new Set(loadExpandedState())
 }
 
@@ -63,12 +65,59 @@ const deleteFolder = async (id) => {
   }
   
   const idsToDelete = [id, ...getChildIds(id)]
-  await noteTable.where('folderId').anyOf(idsToDelete).delete()
-  await folderTable.where('id').anyOf(idsToDelete).delete()
-  
+  // 软删除：子笔记与文件夹置 deletedAt（保留数据，可在回收站恢复），而非真正删除
+  await noteTable.where('folderId').anyOf(idsToDelete).modify({ deletedAt: Date.now() })
+  await folderTable.where('id').anyOf(idsToDelete).modify({ deletedAt: Date.now() })
+  // 从在线笔记内存列表移除被删文件夹下的笔记（并清理标签）
+  useNoteStore().removeNotesFromListByFolder(idsToDelete)
   folderList.value = folderList.value.filter(f => !idsToDelete.includes(f.id))
   idsToDelete.forEach(fid => expandedFolders.value.delete(fid))
   saveExpandedState()
+}
+
+// ==================== 回收站（文件夹软删除的恢复 / 彻底删除） ====================
+const getDeletedFolders = async () => {
+  const list = await folderTable.where('deletedAt').above(0).toArray()
+  return list.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))
+}
+
+// 恢复文件夹（级联恢复其下子文件夹与被删笔记），仅把不在内存列表的项加回
+const restoreFolder = async (id) => {
+  const noteStore = useNoteStore()
+  const restoredFolderIds = new Set()
+  const restoreTree = async (fid) => {
+    await folderTable.update(fid, { deletedAt: 0 })
+    restoredFolderIds.add(fid)
+    await noteTable.where('folderId').equals(fid).modify({ deletedAt: 0 })
+    const children = await folderTable.where('parentId').equals(fid).toArray()
+    for (const c of children) if (c.deletedAt) await restoreTree(c.id)
+  }
+  await restoreTree(id)
+  for (const fid of restoredFolderIds) {
+    const f = await folderTable.get(fid)
+    if (f && !folderList.value.some(x => x.id === fid)) folderList.value.push(f)
+  }
+  const restoredNotes = await noteTable.where('deletedAt').equals(0)
+    .filter(n => restoredFolderIds.has(n.folderId)).toArray()
+  for (const n of restoredNotes) {
+    if (!noteStore.noteList.value.some(x => x.id === n.id)) noteStore.noteList.value.push(n)
+  }
+}
+
+const purgeFolder = async (id) => {
+  // 彻底删除文件夹及其下的在线笔记
+  await noteTable.where('folderId').equals(id).delete()
+  await folderTable.delete(id)
+  folderList.value = folderList.value.filter(f => f.id !== id)
+  expandedFolders.value.delete(id)
+  saveExpandedState()
+}
+
+const emptyRecycleBinFolders = async () => {
+  const deleted = await folderTable.where('deletedAt').above(0).toArray()
+  for (const f of deleted) {
+    await purgeFolder(f.id)
+  }
 }
 
 const updateFolder = async (id, payload) => {
@@ -151,7 +200,11 @@ const instance = {
   moveFolder,
   moveNoteToFolder,
   setDragState,
-  clearDragState
+  clearDragState,
+  getDeletedFolders,
+  restoreFolder,
+  purgeFolder,
+  emptyRecycleBinFolders
 }
 
 export function useFolderStore() {

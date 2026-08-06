@@ -7,6 +7,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 import Vditor from 'vditor'
+import { fileToMarkdown } from '../utils/imageEmbed'
 
 const props = defineProps(['modelValue'])
 const emit = defineEmits(['update:modelValue', 'change'])
@@ -29,6 +30,29 @@ onMounted(async () => {
       value: props.modelValue ?? '',
       cache: {
         enable: false // 关闭 Vditor 本地缓存，避免每次输入写 localStorage 的开销
+      },
+      // 图片插入：粘贴 / 拖入 / 点工具栏「上传」均走此 handler。
+      // 注意 Vditor 的 handler 返回值只用作「错误提示」（字符串会被当 tip 显示），
+      // 内容必须由 handler 自行 insertValue 插入，再主动 emit 触发上层自动保存。
+      upload: {
+        accept: 'image/*',
+        multiple: true, // 必须显式开启，否则 uploadFiles 只传 1 个文件给 handler
+        handler: async (files) => {
+          const images = Array.from(files).filter(f => f.type.startsWith('image/'))
+          if (images.length === 0) {
+            return '仅支持插入图片文件（已忽略非图片内容）'
+          }
+          try {
+            const parts = await Promise.all(images.map(f => fileToMarkdown(f)))
+            vditor.insertValue(parts.join('\n') + '\n')
+            // insertValue 不一定触发 input 回调，主动同步到上层确保自动保存捕获
+            emit('update:modelValue', vditor.getValue())
+          } catch (err) {
+            console.error('图片插入失败:', err)
+            return '图片插入失败：' + (err?.message || err)
+          }
+          return null
+        }
       },
       input: (val) => {
         emit('update:modelValue', val)
