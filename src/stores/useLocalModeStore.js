@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { localConfigTable } from '../utils/db'
 
 // ==================== 运行时状态（模块级单例） ====================
 const mode = ref(localStorage.getItem('localMode') || 'online')
@@ -20,12 +21,44 @@ const setFolderHandle = (handle) => {
   // 绑定新目录前清空旧缓存，防止新旧目录数据混杂
   folderCache.clear()
   folderHandleVersion.value++
+  // 同步持久化到 IndexedDB，刷新后可直接复用（无需重新选目录）
+  saveFolderHandle(handle)
 }
 
 const clearFolderHandle = () => {
   folderHandle = null
   folderCache.clear()
   folderHandleVersion.value++
+  // 清除持久化的句柄（换目录/解绑时保持一致）
+  clearSavedFolderHandle()
+}
+
+// ==================== 本地文件夹句柄持久化（IndexedDB） ====================
+// FileSystemDirectoryHandle 可被 IndexedDB 结构化克隆，刷新后取回再授权即可复用。
+const saveFolderHandle = async (handle) => {
+  try {
+    await localConfigTable.put({ id: 'localFolder', handle })
+  } catch (err) {
+    console.error('保存本地文件夹句柄失败:', err)
+  }
+}
+
+const loadSavedFolderHandle = async () => {
+  try {
+    const rec = await localConfigTable.get('localFolder')
+    return rec?.handle || null
+  } catch (err) {
+    console.error('读取本地文件夹句柄失败:', err)
+    return null
+  }
+}
+
+const clearSavedFolderHandle = async () => {
+  try {
+    await localConfigTable.delete('localFolder')
+  } catch (err) {
+    console.error('清除本地文件夹句柄失败:', err)
+  }
 }
 
 // 暴露当前目录句柄（供 FileSystemObserver 观察）
@@ -231,7 +264,8 @@ const instance = {
   deleteLocalNote,
   deleteLocalFolder,
   renameDirectory,
-  renameLocalFile
+  renameLocalFile,
+  loadSavedFolderHandle
 }
 
 export function useLocalModeStore() {

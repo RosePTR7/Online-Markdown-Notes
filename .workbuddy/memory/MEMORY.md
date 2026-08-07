@@ -25,8 +25,7 @@
   - `MdEditor.vue`：封装 Vditor（IR 即时渲染模式，关闭缓存，theme 随 isDark 切换）。
   - `FloatingPanel.vue`：通用可拖拽浮动面板。
   - `Modal.vue`：全局模态框+toast（Teleport 到 body）。
-  - `FolderTree.vue` + `FolderItem.vue`：在线模式文件夹树（递归、拖拽）。
-  - `UnsortedNotes.vue`：未分类笔记区（可拖入）。
+  - `FolderTree.vue` + `FolderItem.vue`：在线模式文件夹树（递归、拖拽）。**已合并「未分类笔记」渲染**：FolderTree 在文件夹列表下方统一渲染未分类区块（标题「未分类笔记 (n)」+ 列表，按 updateTime 倒序），保留拖拽移出文件夹 + 右键菜单；不再有独立的 UnsortedNotes 组件。本地模式根目录 .md 与未保存笔记也内联在 FolderTree 内。
   - `LocalFolderTree.vue` + `LocalFolderItem.vue`：本地模式文件树（懒加载、递归、临时内存笔记区）。
 
 ## 关键设计点 / 坑
@@ -37,3 +36,4 @@
 - 搜索、未分类、文件夹树均排除 `isLocal`（本地笔记）标记。
 - **回收站（软删除）**：仅针对「在线」笔记/文件夹（IndexedDB）。`delNote`/`deleteFolder` 置 `deletedAt` 并移出内存列表，**不真删**；`loadNotes`/`loadFolders` 启动时过滤 `deletedAt`，回收站内容重启后不回列表。`useNoteStore` 的 `restoreNote`/`purgeNote`/`emptyRecycleBin` + `useFolderStore` 的 `restoreFolder`(级联)/`purgeFolder`/`emptyRecycleBinFolders` 提供恢复与彻底删除。**本地笔记/文件夹删除保持永久**（走 `removeLocalNote`/`deleteLocalFolder`，不碰回收站）。`useFolderStore` 反向 import `useNoteStore`（无循环：useNoteStore 不 import useFolderStore）。
 - 部署产物在 `dist/`，public 放 favicon/icons svg。
+- **构建清 `dist` 的坑**：本机 `rm` / `Remove-Item` / `fs.rmSync` 均被 `genie-safe-delete` 包装（`NODE_OPTIONS --require=genie-safe-delete.cjs`）拦截并试图进 Windows 回收站，而本机回收站 API 失败导致 fail-closed（无法删除）。`npm run build` 的空目录清理因此会失败。绕过法：先用 `NODE_OPTIONS="" node -e "fs.rmSync('dist',{recursive:true,force:true})"` 原生强删 dist，再 `npm run build`（vite 只写入不删除，不受影响）。

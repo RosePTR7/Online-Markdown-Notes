@@ -82,11 +82,6 @@
       <!-- 主内容区域：在线/本地共用同一套侧边栏外观，仅接入不同的数据与逻辑 -->
       <div v-else class="flex-1 overflow-y-auto overflow-x-hidden">
         <FolderTree ref="folderTreeRef" @open-note="handleOpenLocalNote" />
-        <!-- 在线模式：未分类笔记区 -->
-        <template v-if="localModeStore.mode.value === 'online'">
-          <div class="h-px mx-3 my-2 shrink-0" :class="isDark ? 'bg-slate-600' : 'bg-slate-300'"></div>
-          <UnsortedNotes />
-        </template>
         <!-- 手动刷新按钮（本地模式，兜底同步磁盘变化） -->
         <div v-if="localModeStore.mode.value === 'local'" class="shrink-0 px-3 py-2 border-t" :class="isDark ? 'border-slate-600' : 'border-slate-200'">
           <button
@@ -155,7 +150,6 @@ import { useFolderStore } from '../stores/useFolderStore'
 import { useModalStore } from '../stores/useModalStore'
 import { useLocalModeStore } from '../stores/useLocalModeStore'
 import FolderTree from './FolderTree.vue'
-import UnsortedNotes from './UnsortedNotes.vue'
 import RecycleBin from './RecycleBin.vue'
 import Icon from './Icon.vue'
 
@@ -182,15 +176,10 @@ const isCreating = ref(false)
 const handleCreateNote = async () => {
   if (isCreating.value) return
 
-  // 本地模式：未选目录时先引导选择，再创建
-  if (localModeStore.mode.value === 'local' && !localModeStore.hasFolder()) {
-    const confirmed = await modalStore.confirm({
-      title: '选择本地文件夹',
-      message: '请先选择一个本地文件夹作为笔记存储目录。',
-      confirmText: '选择文件夹'
-    })
-    if (confirmed) await selectLocalFolder()
-    return
+  // 本地模式：确保已绑定文件夹（刷新后复用上次路径），再创建
+  if (localModeStore.mode.value === 'local') {
+    const ok = await ensureLocalFolder()
+    if (!ok) return
   }
 
   const name = await modalStore.prompt({
@@ -216,15 +205,8 @@ const handleCreateFolder = async () => {
   if (isCreating.value) return
   
   if (localModeStore.mode.value === 'local') {
-    if (!localModeStore.hasFolder()) {
-      const confirmed = await modalStore.confirm({
-        title: '选择本地文件夹',
-        message: '请先选择一个本地文件夹作为笔记存储目录。',
-        confirmText: '选择文件夹'
-      })
-      if (confirmed) await selectLocalFolder()
-      return
-    }
+    const ok = await ensureLocalFolder()
+    if (!ok) return
     const name = await modalStore.prompt({
       title: '新建文件夹',
       defaultValue: '',
@@ -357,18 +339,72 @@ const selectLocalFolder = async () => {
   }
 }
 
-const changeLocalFolderPath = async () => {
-  localModeStore.clearFolderHandle()
-  try {
-    const handle = await window.showDirectoryPicker()
-    localModeStore.setFolderHandle(handle)
-    // 目录切换后串行清缓存并重新扫描，防止新旧目录数据混杂
-    if (folderTreeRef.value?.resetAndScan) {
-      await folderTreeRef.value.resetAndScan()
-    }
-  } catch (err) {
-    if (err.name !== 'AbortError') console.error('更改文件夹路径失败:', err)
+// 确保已进入本地文件夹：
+// - 已绑定（内存有句柄）→ 直接返回 true
+// - 刷新后内存丢失但有持久化句柄 → 弹「继续使用 / 更换文件夹」确认框，
+//   点继续使用则重新请求权限并复用，点更换则走系统选目录框
+// - 完全没有持久化记录 → 维持原有引导，弹窗让用户选目录
+const ensureLocalFolder = async () => {
+  if (localModeStore.hasFolder()) return true
+
+  const saved = await localModeStore.loadSavedFolderHandle()
+  if (!saved) {
+    const confirmed = await modalStore.confirm({
+      title: '选择本地文件夹',
+      message: '请先选择一个本地文件夹作为笔记存储目录。',
+      confirmText: '选择文件夹'
+    })
+    if (confirmed) await selectLocalFolder()
+    return localModeStore.hasFolder()
   }
+
+  const reuse = await modalStore.confirm({
+    title: '使用上次文件夹',
+    message: `检测到上次绑定的本地文件夹「${saved.name}」。\n点击「继续使用」将直接复用；点击「更换文件夹」可选择其他目录。`,
+    confirmText: '继续使用',
+    cancelText: '更换文件夹'
+  })
+
+  // 选择更换 → 直接走系统选目录框
+  if (!reuse) {
+    await selectLocalFolder()
+    return localModeStore.hasFolder()
+  }
+
+  // 选择复用 → 重新请求权限（刷新后权限重置，浏览器会弹原生授权框），授权后绑定并扫描
+  try {
+    const perm = await saved.requestPermission({ mode: 'readwrite' })
+    if (perm === 'granted') {
+      localModeStore.setFolderHandle(saved)
+      await folderTreeRef.value?.resetAndScan?.()
+      return true
+    }
+    modalStore.showToast('未获得文件夹访问权限，请重新选择', 'error')
+  } catch (err) {
+    console.error('复用文件夹失败:', err)
+    modalStore.showToast('复用文件夹失败，请重新选择', 'error')
+  }
+  await selectLocalFolder()
+  return localModeStore.hasFolder()
+}
+
+const changeLocalFolderPath = async () => {
+  // 已绑定（内存有句柄）：直接选新目录（原有行为）
+  if (localModeStore.hasFolder()) {
+    localModeStore.clearFolderHandle()
+    try {
+      const handle = await window.showDirectoryPicker()
+      localModeStore.setFolderHandle(handle)
+      if (folderTreeRef.value?.resetAndScan) {
+        await folderTreeRef.value.resetAndScan()
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('更改文件夹路径失败:', err)
+    }
+    return
+  }
+  // 刷新后内存丢失但 IndexedDB 有记录：走「复用 / 更换」确认框
+  await ensureLocalFolder()
 }
 
 // ==========拖拽导入（从浏览器外拖文件到侧边栏）==========

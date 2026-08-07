@@ -41,6 +41,59 @@
       </div>
     </div>
 
+    <!-- 在线模式：未分类笔记（固定显示在文件夹下方，合并自原 UnsortedNotes 组件） -->
+    <template v-if="!isLocal">
+      <div
+        v-if="unsortedNotes.length > 0"
+        class="px-1 pb-1"
+        @dragover.prevent="onUnsortedDragOver"
+        @dragleave="onUnsortedDragLeave"
+        @drop="onUnsortedDrop"
+      >
+        <!-- 分组标题 -->
+        <div
+          class="flex items-center justify-between px-3 py-2 border-b transition-colors duration-200"
+          :class="isDark ? 'border-slate-600' : 'border-slate-200'"
+        >
+          <div class="flex items-center gap-2">
+            <Icon name="add-note" class="w-4 h-4" :class="isDark ? 'text-slate-400' : 'text-slate-500'" />
+            <span class="text-sm font-medium" :class="isDark ? 'text-slate-300' : 'text-slate-600'">未分类笔记</span>
+            <span
+              class="text-xs px-1.5 py-0.5 rounded-full"
+              :class="isDark ? 'bg-slate-600 text-slate-400' : 'bg-slate-200 text-slate-500'"
+            >
+              {{ unsortedNotes.length }}
+            </span>
+          </div>
+        </div>
+        <!-- 笔记列表 -->
+        <div class="px-1 py-1">
+          <div
+            v-for="note in unsortedNotes"
+            :key="note.id"
+            class="note-item flex items-center px-2 py-1.5 rounded-xl cursor-pointer group transition-colors duration-200 border"
+            :class="[
+              activeId === note.id
+                ? (isDark ? 'bg-slate-600 border-indigo-500/50 text-indigo-300' : 'bg-white border-indigo-300 text-indigo-600')
+                : (isDark
+                    ? 'bg-slate-600/30 border-slate-500/30 hover:bg-slate-600 text-slate-300'
+                    : 'bg-slate-200/50 border-slate-300/50 hover:bg-slate-200 text-slate-700')
+            ]"
+            draggable="true"
+            @dragstart="onUnsortedDragStart(note, $event)"
+            @dragend="onUnsortedDragEnd"
+            @click="openNote(note.id)"
+            @contextmenu.prevent="openContextMenu({ type: 'note', target: note.id, x: $event.clientX, y: $event.clientY })"
+          >
+            <span class="mr-2 shrink-0">
+              <Icon name="doc" class="w-3.5 h-3.5" :class="isDark ? 'text-slate-50' : 'text-slate-500'" />
+            </span>
+            <span class="flex-1 truncate text-sm">{{ note.title }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- 本地模式：根目录笔记（未分类）+ 未保存笔记 -->
     <template v-if="isLocal">
       <!-- 根目录文件（未分类笔记） -->
@@ -147,11 +200,13 @@ const localModeStore = useLocalModeStore()
 
 const {
   addFolder, updateFolder, deleteFolder,
-  getTopLevelFolders, folderList
+  getTopLevelFolders, folderList,
+  dragState, setDragState, clearDragState
 } = folderStore
 const {
   updateNote, moveNoteToFolder, delNote, removeLocalNote,
-  noteList, activeId, createNote, updateLocalNoteLocation, updateLocalNotesDirPath
+  noteList, activeId, createNote, openNote, getUnsortedNotes,
+  updateLocalNoteLocation, updateLocalNotesDirPath
 } = noteStore
 const {
   hasFolder, listDirectoryContents, addLocalFolder, deleteLocalNote,
@@ -162,6 +217,55 @@ const isLocal = computed(() => localModeStore.mode.value === 'local')
 
 // ========== 在线模式数据 ==========
 const topLevelFolders = computed(() => getTopLevelFolders.value)
+// 在线模式未分类笔记（folderId 为 null/undefined 且非本地），固定显示在文件夹下方
+// getUnsortedNotes 已过滤非本地，这里仅做排序
+const unsortedNotes = computed(() =>
+  getUnsortedNotes.value.slice().sort((a, b) => b.updateTime - a.updateTime)
+)
+
+// ========== 在线未分类区块拖拽（放置到此区域 = 移出文件夹） ==========
+const isUnsortedDragOver = ref(false)
+
+const onUnsortedDragStart = (note, e) => {
+  e.stopPropagation()
+  setDragState({ isDragging: true, dragItem: { type: 'note', id: note.id } })
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'note', id: note.id }))
+}
+
+const onUnsortedDragEnd = () => {
+  clearDragState()
+  isUnsortedDragOver.value = false
+}
+
+const onUnsortedDragOver = (e) => {
+  e.preventDefault()
+  const dragItem = dragState.value.dragItem
+  if (!dragItem) return
+  isUnsortedDragOver.value = true
+  e.dataTransfer.dropEffect = 'move'
+}
+
+const onUnsortedDragLeave = (e) => {
+  const rect = e.currentTarget.getBoundingClientRect()
+  const x = e.clientX
+  const y = e.clientY
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    isUnsortedDragOver.value = false
+  }
+}
+
+const onUnsortedDrop = async (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  const dragItem = dragState.value.dragItem
+  if (!dragItem) return
+  if (dragItem.type === 'note') {
+    await moveNoteToFolder(dragItem.id, null)
+  }
+  clearDragState()
+  isUnsortedDragOver.value = false
+}
 
 // ========== 本地模式数据 ==========
 const loading = ref(false)

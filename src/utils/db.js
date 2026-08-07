@@ -38,6 +38,19 @@ db.version(4).stores({
   aiConfig: 'id'
 })
 
+// 版本5：本地模式文件夹句柄持久化
+// - 新增 localConfig 表，用于存储 FileSystemDirectoryHandle。
+//   FileSystemDirectoryHandle 可被 IndexedDB 结构化克隆持久化；刷新后取回该句柄，
+//   重新 requestPermission 授权即可复用上次绑定的文件夹，无需重新用系统选目录框选一次。
+// ⚠️ 切勿再就地修改任何旧版本号；以后扩展 schema 一律新增 version(6)、version(7)…
+db.version(5).stores({
+  notes: 'id, folderId, deletedAt',
+  folders: 'id, parentId, order, deletedAt',
+  aiConfig: 'id',
+  localConfig: 'id'
+})
+
 export const noteTable = db.notes
 export const aiConfigTable = db.aiConfig
 export const folderTable = db.folders
+export const localConfigTable = db.localConfig
