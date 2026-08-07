@@ -21,6 +21,7 @@
         @undo="handleUndo"
         @redo="handleRedo"
         @set-theme="handleSetTheme"
+        @manual-save="handleManualSave"
       />
     </div>
 
@@ -43,7 +44,7 @@ const folderStore = useFolderStore()
 const saveManager = useSaveManager()
 const {
   aiConfig, currentNote,
-  loadNotes, loadAiConfig
+  loadNotes, loadAiConfig, loadAutoSave
 } = noteStore
 const { loadFolders } = folderStore
 
@@ -169,21 +170,42 @@ onMounted(async () => {
     await loadNotes()
     await loadFolders()
     await loadAiConfig()
+    await loadAutoSave()
   } finally {
     loading.value = false
   }
   // beforeunload：尽力把所有脏笔记落盘（异步写盘，浏览器不保证 await，但有总比没有好）
   window.addEventListener('beforeunload', handleBeforeUnload)
+  window.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
   // 卸载时同样尽力落盘全部脏笔记
   saveManager.flushAll()
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('keydown', onKeydown)
   mediaQuery.removeEventListener('change', handleSystemThemeChange)
 })
 
 const editorContent = ref('')
+
+// ==========手动保存（工具栏按钮 + 快捷键 Ctrl/Cmd+S）==========
+// 强行打断该笔记未完成的防抖计时器并立即落盘：先 scheduleSave 把最新内容兜底写入 pending，
+// 再 flushNote 清除 timer 并立即 persist（flushNote 内部已 clearTimeout + 立即 runSave）。
+const handleManualSave = async () => {
+  if (!currentNote.value) return
+  const id = currentNote.value.id
+  saveManager.scheduleSave(id, editorContent.value)
+  await saveManager.flushNote(id)
+}
+
+// 全局快捷键：Ctrl+S（Mac 为 Cmd+S）。必须 preventDefault 阻止浏览器「保存网页」对话框。
+const onKeydown = (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault()
+    handleManualSave()
+  }
+}
 
 // 主题模式 - 从 localStorage 读取，默认为 'light'
 // 支持 'light' | 'dark' | 'system'
@@ -256,7 +278,13 @@ watch(editorContent, (newVal) => {
     // 真正持久化交给 scheduleSave（按 noteId 独立的防抖/后台写盘）。
     noteStore.updateNoteContent(currentNote.value.id, newVal)
     // 关键：用编辑发生时的笔记 id 建独立待保存，计时器在后台继续，切走也不取消
-    saveManager.scheduleSave(currentNote.value.id, newVal)
+    if (noteStore.autoSaveEnabled.value) {
+      // 自动保存开启：按 noteId 独立的防抖/后台写盘
+      saveManager.scheduleSave(currentNote.value.id, newVal)
+    } else {
+      // 自动保存关闭：仅标记脏（写入 pending 但不设 timer），仍可手动保存 / 卸载落盘
+      saveManager.markDirty(currentNote.value.id, newVal)
+    }
   } else {
     // 内容改回原值：取消该笔记的待保存（避免无谓写盘），并标记已保存
     isUnsaved.value = false

@@ -17,6 +17,11 @@
                 导出
                 <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">▶</span>
               </MenuItem>
+              <div class="my-1 transition-colors duration-300" :class="isDark ? 'border-t border-slate-600' : 'border-t border-slate-200'"></div>
+              <MenuItem @click="toggleAutoSave">
+                自动保存
+                <span v-if="autoSaveEnabled" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs">✓</span>
+              </MenuItem>
             </template>
             <template v-if="activePanel === 'edit'">
               <MenuItem label="撤销" @click="doUndo()" />
@@ -48,11 +53,21 @@
           <button ref="aiConfigRef" class="px-4 py-1.5 rounded-lg text-base border transition-colors duration-300" :class="isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'" @click="openAiConfig">AI配置</button>
         </div>
         <div class="flex-1"></div>
-        
+
+        <!-- 手动保存按钮（紧贴状态块左侧，点完即可见状态翻绿） -->
+        <button
+          class="shrink-0 px-3 py-1.5 rounded-lg text-sm border transition-colors duration-300"
+          :class="isDark
+            ? 'bg-slate-600 hover:bg-slate-500 text-slate-200 border-slate-500'
+            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'"
+          title="保存 (Ctrl/Cmd+S)"
+          @click="emit('manual-save')"
+        >保存</button>
+
         <!-- 保存状态区域 -->
         <div class="flex items-center gap-2 shrink-0">
-          <!-- 加载转圈动画 - 未保存时显示 -->
-          <Icon name="spinner" class="animate-spin h-4 w-4 text-indigo-500" v-if="isUnsaved" />
+          <!-- 加载转圈动画 - 仅「自动保存开启且未保存」时显示 -->
+          <Icon name="spinner" class="animate-spin h-4 w-4 text-indigo-500" v-if="isUnsaved && autoSaveEnabled" />
           <!-- 保存状态 - 圆角矩形色块 -->
           <div 
             class="px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-300"
@@ -295,7 +310,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'undo', 'redo', 'set-theme'])
+const emit = defineEmits(['update:modelValue', 'undo', 'redo', 'set-theme', 'manual-save'])
 
 // 注入主题
 const isDark = inject('isDark', ref(false))
@@ -583,8 +598,12 @@ defineExpose({ handleFind, handleReplace, openFindReplacePanel, setContent, clos
 const noteStore = useNoteStore()
 const {
   noteList, openTabs, activeId, aiConfig, currentNote,
-  updateNote, openNote, closeTab
+  updateNote, openNote, closeTab,
+  autoSaveEnabled, setAutoSave
 } = noteStore
+
+// 文件菜单「自动保存」开关：切换并持久化（默认开，关闭后记住习惯）
+const toggleAutoSave = () => setAutoSave(!autoSaveEnabled.value)
 
 // ==========标签页拖拽排序==========
 const tabList = computed({

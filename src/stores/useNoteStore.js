@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
-import { noteTable, folderTable, aiConfigTable } from '../utils/db'
+import { noteTable, folderTable, aiConfigTable, localConfigTable } from '../utils/db'
 import { useLocalModeStore } from './useLocalModeStore'
 import { useModalStore } from './useModalStore'
 import { buildLocalNoteFile } from '../utils/localFile'
@@ -41,6 +41,29 @@ const loadAiConfig = async () => {
 }
 
 const saveAiConfig = () => aiConfigTable.put({ id: 'global', ...aiConfig.value })
+
+// ==================== 自动保存开关（持久化） ====================
+// 默认开启；IndexedDB 已有记录时以记录为准。复用 localConfig 表（id='autoSave'），
+// 不弹确认框，刷新后直接套用上次习惯（与本地模式文件夹句柄的持久化行为一致）。
+const autoSaveEnabled = ref(true)
+
+const loadAutoSave = async () => {
+  try {
+    const rec = await localConfigTable.get('autoSave')
+    if (rec) autoSaveEnabled.value = rec.enabled !== false
+  } catch (e) {
+    console.error('读取自动保存设置失败:', e)
+  }
+}
+
+const setAutoSave = async (val) => {
+  autoSaveEnabled.value = val
+  try {
+    await localConfigTable.put({ id: 'autoSave', enabled: val })
+  } catch (e) {
+    console.error('保存自动保存设置失败:', e)
+  }
+}
 
 // ==================== Actions（在线模式 - IndexedDB） ====================
 const addNote = async (folderId = null, title, content) => {
@@ -262,7 +285,7 @@ const persistNote = async (id, content) => {
 }
 
 // 仅更新内存中的笔记内容（不写 Dexie / 不写磁盘）：编辑器每次输入即时保持 note.content 为最新，
-// 避免「切走再在 2s 防抖窗口内切回」时显示陈旧内容。真正的持久化仍交由 persistNote 防抖完成。
+// 避免「切走再在 1.5s 防抖窗口内切回」时显示陈旧内容。真正的持久化仍交由 persistNote 防抖完成。
 const updateNoteContent = (id, content) => {
   const idx = noteList.value.findIndex(n => n.id === id)
   // 原地修改属性（不替换元素），否则 currentNote 计算属性引用变化会每键触发「切换笔记」watch
@@ -286,7 +309,7 @@ const openNote = (id) => {
 }
 
 const closeTab = (id) => {
-  // 关闭标签前尽力把未落盘的改动写盘（2s 防抖内的编辑也保住），fire-and-forget
+  // 关闭标签前尽力把未落盘的改动写盘（1.5s 防抖内的编辑也保住），fire-and-forget
   useSaveManager().flushNote(id)
   openTabs.value = openTabs.value.filter(t => t.id !== id)
   if (activeId.value === id) activeId.value = openTabs.value.at(-1)?.id || ''
@@ -402,6 +425,7 @@ const updateLocalNotesDirPath = (oldDirPath, newDirPath) => {
 const instance = {
   noteList, openTabs, activeId, aiConfig, currentNote, getUnsortedNotes,
   loadNotes, loadAiConfig, saveAiConfig,
+  autoSaveEnabled, loadAutoSave, setAutoSave,
   addNote, delNote, updateNote, openNote, closeTab, moveNoteToFolder, removeLocalNote,
   persistNote, updateNoteContent,
   addLocalNoteDirectly, createLocalNote, finalizeLocalNote,

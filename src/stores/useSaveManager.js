@@ -13,7 +13,7 @@
 //   - 唯一真实危险是「同一文件被两次同时在途写」：用 saving 单飞标志 + flush 前
 //     clearTimeout 保证同一笔记同一时刻只有一个写在途。
 
-const DEBOUNCE_DELAY = 2000
+const DEBOUNCE_DELAY = 1500
 
 // noteId -> { content, timer, saving }
 const pending = new Map()
@@ -60,6 +60,22 @@ export function scheduleSave(noteId, content) {
   entry.timer = setTimeout(() => runSave(noteId), DEBOUNCE_DELAY)
 }
 
+// 仅标记脏、不挂计时器。关闭自动保存时使用：内容进 pending 但需手动保存，
+// 卸载/关标签时的 flushAll / flushNote 仍能把它落盘（防数据丢失）。
+export function markDirty(noteId, content) {
+  if (!noteId) return
+  let entry = pending.get(noteId)
+  if (!entry) {
+    entry = { content, timer: null, saving: false }
+    pending.set(noteId, entry)
+  }
+  entry.content = content
+  if (entry.timer) {
+    clearTimeout(entry.timer)
+    entry.timer = null
+  }
+}
+
 // 立即落盘某笔记（切走/关标签时可调用；不取消其它笔记的后台保存）
 export async function flushNote(noteId) {
   const entry = pending.get(noteId)
@@ -85,5 +101,5 @@ export function removePending(noteId) {
 }
 
 export function useSaveManager() {
-  return { initSaveManager, scheduleSave, flushNote, flushAll, removePending }
+  return { initSaveManager, scheduleSave, flushNote, flushAll, removePending, markDirty }
 }

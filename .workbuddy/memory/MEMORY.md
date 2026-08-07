@@ -6,7 +6,7 @@
 ## 目录结构
 - `index.html` / `vite.config.js` / `uno.config.js`：入口、Vite 配置（vue + UnoCSS 插件）、base 路径。
 - `src/main.js`：加载 UnoCSS、Vditor、highlight.js（亮/暗）样式，挂载 App。
-- `src/App.vue`：根组件。加载数据（loadNotes/loadFolders/loadAiConfig）、侧边栏宽度拖拽、主题（light/dark/system，localStorage 持久化 + 跟随系统）、**按 noteId 隔离的内容后台防抖自动保存（2s，useSaveManager，切换笔记不打断旧笔记计时器、旧笔记后台继续落盘）**、**每笔记撤销/重做历史栈（最多50步，saveHistoryMap）**、beforeunload/onBeforeUnmount flushAll 落盘全部脏笔记。
+- `src/App.vue`：根组件。加载数据（loadNotes/loadFolders/loadAiConfig）、侧边栏宽度拖拽、主题（light/dark/system，localStorage 持久化 + 跟随系统）、**按 noteId 隔离的内容后台防抖自动保存（1.5s，useSaveManager，切换笔记不打断旧笔记计时器、旧笔记后台继续落盘）**、**手动保存**（工具栏「保存」按钮 + 全局快捷键 `Ctrl/Cmd+S`，`window` keydown + `preventDefault`；实现为 `scheduleSave` 兜底最新内容 + `flushNote(id)` 打断计时器立即落盘）、**每笔记撤销/重做历史栈（最多50步，saveHistoryMap）**、beforeunload/onBeforeUnmount flushAll 落盘全部脏笔记。
 - `src/stores/`：四个模块级单例（非 Pinia）：
   - `useNoteStore`：笔记列表/打开标签/激活笔记、CRUD、AI 配置、本地笔记内存占位+写盘（addLocalNoteDirectly/finalizeLocalNote）。
   - `useFolderStore`：文件夹树 CRUD、拖拽移动（moveFolder 支持 inside/before/after、防环）、展开状态本地持久化。
